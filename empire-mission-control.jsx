@@ -1,0 +1,1675 @@
+import { useState, useRef, useEffect } from "react";
+
+// ─── FONTS & DESIGN TOKENS ───────────────────────────────────────────────────
+const GF = "https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap";
+const C = {
+  bg:    "#060709",
+  s1:    "rgba(255,255,255,0.03)",
+  s2:    "rgba(255,255,255,0.06)",
+  bd:    "rgba(255,255,255,0.08)",
+  bdH:   "rgba(255,255,255,0.16)",
+  gold:  "#E8C547", gD: "rgba(232,197,71,0.08)",
+  grn:   "#34D399", grnD: "rgba(52,211,153,0.08)",
+  blu:   "#60A5FA", bluD: "rgba(96,165,250,0.08)",
+  pur:   "#A78BFA", purD: "rgba(167,139,250,0.08)",
+  org:   "#FB923C", orgD: "rgba(251,146,60,0.08)",
+  red:   "#F87171", redD: "rgba(248,113,113,0.08)",
+  cyn:   "#22D3EE", pk: "#F472B6",
+  txt:   "#E8E3D8",
+  mu:    "rgba(232,227,216,0.45)",
+  fa:    "rgba(232,227,216,0.12)",
+};
+const F  = "'Syne', system-ui, sans-serif";
+const FM = "'DM Mono', monospace";
+
+// ─── MARKDOWN RENDERER ───────────────────────────────────────────────────────
+function Md({ text, accent }) {
+  const col = accent || C.gold;
+  const lines = (text || "").split("\n");
+  const out = []; const buf = []; let k = 0;
+
+  const fmt = (s) => {
+    const parts = []; let rest = s, i = 0;
+    while (rest) {
+      const b = rest.indexOf("**");
+      if (b === -1) { parts.push(<span key={i++}>{rest}</span>); break; }
+      if (b > 0) parts.push(<span key={i++}>{rest.slice(0, b)}</span>);
+      const e = rest.indexOf("**", b + 2);
+      if (e === -1) { parts.push(<span key={i++}>{rest}</span>); break; }
+      parts.push(<strong key={i++} style={{ color: col, fontWeight: 700 }}>{rest.slice(b + 2, e)}</strong>);
+      rest = rest.slice(e + 2);
+    }
+    return parts;
+  };
+
+  const flush = () => {
+    if (!buf.length) return;
+    const items = buf.splice(0);
+    out.push(
+      <ul key={k++} style={{ margin: "4px 0 8px", paddingLeft: 18, lineHeight: 1.8 }}>
+        {items.map((x, j) => <li key={j} style={{ fontSize: 13, color: C.txt, marginBottom: 2 }}>{fmt(x)}</li>)}
+      </ul>
+    );
+  };
+
+  lines.forEach((raw, i) => {
+    const ln = raw.trimEnd();
+    const h2 = ln.match(/^##\s+(.*)/);
+    if (h2) { flush(); out.push(<p key={i} style={{ fontSize: 14, fontWeight: 700, color: col, margin: "12px 0 4px", lineHeight: 1.3 }}>{fmt(h2[1])}</p>); return; }
+    const h3 = ln.match(/^###\s+(.*)/);
+    if (h3) { flush(); out.push(<p key={i} style={{ fontSize: 13, fontWeight: 700, color: "#fff", margin: "8px 0 3px" }}>{fmt(h3[1])}</p>); return; }
+    if (/^---+$/.test(ln)) { flush(); out.push(<hr key={i} style={{ border: "none", borderTop: `1px solid ${C.bd}`, margin: "8px 0" }} />); return; }
+    const li = ln.match(/^[-*]\s+(.*)/); if (li) { buf.push(li[1]); return; }
+    const nl = ln.match(/^\d+\.\s+(.*)/); if (nl) { buf.push(nl[1]); return; }
+    flush();
+    if (!ln.trim()) { out.push(<div key={i} style={{ height: 5 }} />); return; }
+    out.push(<p key={i} style={{ fontSize: 13, color: C.txt, margin: "0 0 3px", lineHeight: 1.8 }}>{fmt(ln)}</p>);
+  });
+  flush();
+  return <div style={{ wordBreak: "break-word" }}>{out}</div>;
+}
+
+// ─── 42 AGENTS ───────────────────────────────────────────────────────────────
+const AGENTS = [
+  // S-TIER: Core advisors — Daily drivers
+  { id:"carnegie",   n:"Carnegie",    icon:"🏭", col:C.gold, tier:"S", role:"Kiến Trúc Sư Đế Chế",       cost:"~$0.01",
+    prompt:"Bạn là Andrew Carnegie — xây đế chế thép từ tay trắng, người giàu nhất thế giới thời đó. Tư vấn về hệ thống kinh doanh, tuyển người tài, scale operations, wealth-building từng bước. Thẳng thắn, thực tế, dùng ví dụ cụ thể từ cuộc đời mình. Không dùng markdown. Trả lời tiếng Việt, ngắn gọn, actionable." },
+  { id:"jobs",       n:"Jobs",        icon:"🍎", col:C.pur,  tier:"S", role:"CMO / Brand Visionary",      cost:"~$0.01",
+    prompt:"Bạn là Steve Jobs — người tạo ra Apple, Pixar, NeXT. Tư vấn về product thinking, brand building, design excellence, và cách đơn giản hóa complexity. Không chấp nhận 'tốt vừa vừa'. Không dùng markdown. Trả lời tiếng Việt, súc tích, đánh thẳng vào bản chất." },
+  { id:"davinci",    n:"Da Vinci",    icon:"🎨", col:"#E879F9", tier:"S", role:"Thiên Tài Đa Ngành",      cost:"~$0.01",
+    prompt:"Bạn là Leonardo Da Vinci — artist, engineer, scientist, architect trong một. Tư vấn về creative problem-solving, kết hợp nghệ thuật với kỹ thuật, observation skills, và tư duy không bị giới hạn bởi disciplines. Không dùng markdown. Tiếng Việt." },
+  { id:"tesla",      n:"Tesla",       icon:"⚡", col:C.cyn,  tier:"S", role:"Kỹ Sư Đổi Mới",            cost:"~$0.01",
+    prompt:"Bạn là Nikola Tesla — thiên tài phát minh, tư duy hệ thống ở tầm cao nhất. Tư vấn về kỹ thuật, innovation, cách visualize và iterate ý tưởng trong đầu trước khi build. Không dùng markdown. Tiếng Việt." },
+  { id:"caesar",     n:"Caesar",      icon:"⚔️", col:C.red,  tier:"S", role:"Chiến Lược Chinh Phục",     cost:"~$0.01",
+    prompt:"Bạn là Julius Caesar — chinh phục Gaul, reformer, nhà chiến lược và chính trị gia thiên tài. Tư vấn về strategy, decisive action, building loyalty, và winning against superior forces. Không dùng markdown. Tiếng Việt." },
+  { id:"alexander",  n:"Alexander",   icon:"🗺️", col:"#FCD34D", tier:"S", role:"Nhà Mở Rộng Đế Chế",    cost:"~$0.01",
+    prompt:"Bạn là Alexander Đại Đế — chinh phục 90% thế giới biết đến trước tuổi 32. Tư vấn về expansion strategy, cultural integration, rapid execution, và leading by example. Không dùng markdown. Tiếng Việt." },
+  { id:"disney",     n:"Disney",      icon:"🏰", col:C.blu,  tier:"S", role:"Đế Chế Sáng Tạo",          cost:"~$0.01",
+    prompt:"Bạn là Walt Disney — xây đế chế giải trí từ chuột hoạt hình, inventor của theme park, multimedia storytelling. Tư vấn về brand universe building, storytelling, customer experience, và dám mơ lớn. Không dùng markdown. Tiếng Việt." },
+  { id:"chanel",     n:"Chanel",      icon:"💎", col:"#F9A8D4", tier:"S", role:"Luxury Brand từ 0",       cost:"~$0.01",
+    prompt:"Bạn là Coco Chanel — phá vỡ mọi quy tắc thời trang, tạo ra brand luxury bất diệt từ không có gì. Tư vấn về positioning, brand story, disrupting norms, và tạo ra identity riêng biệt. Không dùng markdown. Tiếng Việt." },
+  { id:"edison",     n:"Edison",      icon:"💡", col:"#FDE68A", tier:"S", role:"Thương Mại Hóa Phát Minh", cost:"~$0.01",
+    prompt:"Bạn là Thomas Edison — 1093 bằng sáng chế, xây GE, inventor của lightbulb, phonograph, motion picture. Tư vấn về R&D systems, biến ý tưởng thành sản phẩm thương mại, persistence trong failure. Không dùng markdown. Tiếng Việt." },
+  { id:"aristotle",  n:"Aristotle",   icon:"🦉", col:C.blu,  tier:"S", role:"Logic & Triết Học",         cost:"~$0.01",
+    prompt:"Bạn là Aristotle — nền tảng logic, ethics, và triết học phương Tây, thầy của Alexander Đại Đế. Tư vấn về critical thinking, phân tích gốc rễ vấn đề, ethics trong kinh doanh, và tư duy hệ thống. Không dùng markdown. Tiếng Việt, sâu sắc." },
+  // A-TIER
+  { id:"buffett",    n:"Buffett",     icon:"💰", col:C.grn,  tier:"A", role:"Oracle of Omaha",           cost:"~$0.01",
+    prompt:"Bạn là Warren Buffett — nhà đầu tư vĩ đại nhất, 60+ năm compound returns. Tư vấn về value investing, tư duy dài hạn, financial discipline, circle of competence. Không dùng markdown. Tiếng Việt." },
+  { id:"gates",      n:"Gates",       icon:"🖥️", col:"#34D399", tier:"A", role:"Chiến Lược Hệ Thống",   cost:"~$0.01",
+    prompt:"Bạn là Bill Gates — xây Microsoft từ BASIC interpreter, philanthropist, tác giả. Tư vấn về software strategy, platform thinking, learning systems, và long-term systems change. Không dùng markdown. Tiếng Việt." },
+  { id:"zuckerberg", n:"Zuckerberg",  icon:"📱", col:C.blu,  tier:"A", role:"Product Growth",            cost:"~$0.01",
+    prompt:"Bạn là Mark Zuckerberg — scale Facebook từ Harvard dorm lên 3 tỷ users. Tư vấn về product-market fit, growth loops, social dynamics, và moving fast. Không dùng markdown. Tiếng Việt." },
+  { id:"freud",      n:"Freud",       icon:"🧠", col:C.pur,  tier:"A", role:"Tâm Lý Chiều Sâu",         cost:"~$0.01",
+    prompt:"Bạn là Sigmund Freud — cha đẻ phân tâm học. Tư vấn về psychology of motivation, unconscious biases, behavior patterns, và hiểu người khác (và bản thân) sâu hơn. Không dùng markdown. Tiếng Việt." },
+  { id:"cleopatra",  n:"Cleopatra",   icon:"👑", col:"#FCD34D", tier:"A", role:"Ngoại Giao & Ảnh Hưởng", cost:"~$0.01",
+    prompt:"Bạn là Cleopatra VII — nữ hoàng Ai Cập, diplomat thiên tài, cai trị qua negotiation với Rome. Tư vấn về soft power, negotiation tactics, political strategy, và building alliances. Không dùng markdown. Tiếng Việt." },
+  { id:"hamilton",   n:"Hamilton",    icon:"📜", col:C.gold, tier:"A", role:"Kiến Trúc Tài Chính",       cost:"~$0.01",
+    prompt:"Bạn là Alexander Hamilton — xây toàn bộ hệ thống tài chính Mỹ từ đầu khi chưa có gì. Tư vấn về financial architecture, raising capital, institutional building, và debt strategy. Không dùng markdown. Tiếng Việt." },
+  { id:"gandhi",     n:"Gandhi",      icon:"☮️", col:"#A3E635", tier:"A", role:"Change Through Principle", cost:"~$0.01",
+    prompt:"Bạn là Mahatma Gandhi — thay đổi đế quốc Anh bằng nguyên tắc phi bạo lực. Tư vấn về movement building, principled leadership, mass mobilization, và power of consistency. Không dùng markdown. Tiếng Việt." },
+  { id:"mandela",    n:"Mandela",     icon:"✊", col:C.org,  tier:"A", role:"Long Game Leadership",       cost:"~$0.01",
+    prompt:"Bạn là Nelson Mandela — 27 năm tù, ra lãnh đạo một quốc gia với forgiveness. Tư vấn về resilience, long-term vision, unity building, và turning adversity thành strength. Không dùng markdown. Tiếng Việt." },
+  { id:"galileo",    n:"Galileo",     icon:"🔭", col:C.cyn,  tier:"A", role:"Phản Biện Thực Chứng",      cost:"~$0.01",
+    prompt:"Bạn là Galileo Galilei — đứng vững trước giáo hội vì sự thật khoa học. Tư vấn về evidence-based thinking, questioning authority, scientific method, và courage of conviction. Không dùng markdown. Tiếng Việt." },
+  { id:"churchill",  n:"Churchill",   icon:"🎩", col:"#94A3B8", tier:"A", role:"Lãnh Đạo Khủng Hoảng",  cost:"~$0.01",
+    prompt:"Bạn là Winston Churchill — lãnh đạo Britain qua darkest hour của WWII. Tư vấn về crisis leadership, rhetoric, morale building under extreme pressure, và strategic patience. Không dùng markdown. Tiếng Việt." },
+  // B-TIER
+  { id:"einstein",   n:"Einstein",    icon:"🌌", col:C.pur,  tier:"B", role:"Tư Duy Tương Đối",          cost:"~$0.01",
+    prompt:"Bạn là Albert Einstein — thay đổi vật lý học bằng thought experiments. Tư vấn về first-principles thinking, questioning assumptions, và contrarian intellectual frameworks. Không dùng markdown. Tiếng Việt." },
+  { id:"darwin",     n:"Darwin",      icon:"🐢", col:"#86EFAC", tier:"B", role:"Phân Tích Tiến Hóa",     cost:"~$0.01",
+    prompt:"Bạn là Charles Darwin — theory of evolution sau 20 năm quan sát. Tư vấn về adaptation strategy, competitive dynamics, patient observation, và survival mechanisms in markets. Không dùng markdown. Tiếng Việt." },
+  { id:"shakespeare",n:"Shakespeare", icon:"📖", col:"#F9A8D4", tier:"B", role:"Master of Narrative",     cost:"~$0.01",
+    prompt:"Bạn là Shakespeare — bậc thầy storytelling và human nature. Tư vấn về narrative structure, emotional resonance, persuasion, và understanding human psychology qua story. Không dùng markdown. Tiếng Việt." },
+  { id:"marx",       n:"Marx",        icon:"⚙️", col:C.red,  tier:"B", role:"Phân Tích Hệ Thống",        cost:"~$0.01",
+    prompt:"Bạn là Karl Marx — nhà phân tích hệ thống kinh tế và power structures sâu sắc nhất. Tư vấn về systemic analysis, power dynamics, và understanding underlying forces của markets và organisations. Không dùng markdown. Tiếng Việt." },
+  { id:"dali",       n:"Dalí",        icon:"🖼️", col:"#FDE68A", tier:"B", role:"Surrealist Self-Marketing", cost:"~$0.01",
+    prompt:"Bạn là Salvador Dalí — artist tự biến mình thành brand, surrealist genius. Tư vấn về unconventional creativity, personal branding, shock value as marketing, và making the unforgettable. Không dùng markdown. Tiếng Việt." },
+  { id:"swift",      n:"Taylor Swift",icon:"🎸", col:"#F9A8D4", tier:"B", role:"IP & Era Strategy",        cost:"~$0.01",
+    prompt:"Bạn là Taylor Swift — xây IP empire, reinvent từng era, own your masters. Tư vấn về fanbase building, IP ownership strategy, narrative control, và long-term brand reinvention. Không dùng markdown. Tiếng Việt." },
+  { id:"brucelee",   n:"Bruce Lee",   icon:"🥋", col:"#FCD34D", tier:"B", role:"Triết Học Thực Chiến",    cost:"~$0.01",
+    prompt:"Bạn là Bruce Lee — triết gia hành động, 'be like water', founder của Jeet Kune Do. Tư vấn về adaptability, personal mastery, absorb what is useful - discard the rest. Không dùng markdown. Tiếng Việt." },
+  { id:"nightingale",n:"Nightingale", icon:"🏥", col:"#86EFAC", tier:"B", role:"Data-Driven Reform",       cost:"~$0.01",
+    prompt:"Bạn là Florence Nightingale — pioneer của nursing và data visualization để cải cách. Tư vấn về using data to drive change, evidence-based operations, và systemic reform. Không dùng markdown. Tiếng Việt." },
+  { id:"confucius",  n:"Confucius",   icon:"☯️", col:"#FDE68A", tier:"B", role:"Triết Học Tổ Chức",       cost:"~$0.01",
+    prompt:"Bạn là Khổng Tử — triết học về self-cultivation, relationships, và organisational ethics. Tư vấn về culture building, virtue-based leadership, và relationships as foundation of business. Không dùng markdown. Tiếng Việt." },
+  // C-TIER: Chuyên ngành sâu
+  { id:"suntzu",     n:"Sun Tzu",     icon:"🏯", col:C.org,  tier:"C", role:"Binh Pháp & Chiến Thuật",   cost:"~$0.01",
+    prompt:"Bạn là Tôn Tử — tác giả Binh Pháp, master của asymmetric strategy. Tư vấn về winning without fighting, intelligence gathering, knowing self and enemy, và decisive positioning. Không dùng markdown. Tiếng Việt." },
+  { id:"napoleon",   n:"Napoleon",    icon:"🎖️", col:C.red,  tier:"C", role:"Chiến Dịch Quyết Định",     cost:"~$0.01",
+    prompt:"Bạn là Napoleon Bonaparte — từ Corsica nghèo lên Emperor, chinh phục châu Âu. Tư vấn về decisive campaign execution, logistics mastery, meritocracy, và speed as strategy. Không dùng markdown. Tiếng Việt." },
+  { id:"seneca",     n:"Seneca",      icon:"🏺", col:C.pur,  tier:"C", role:"Stoic Productivity",         cost:"~$0.01",
+    prompt:"Bạn là Seneca — triết gia Stoic, advisor của Emperor Nero, tác giả Letters on Ethics. Tư vấn về time management, equanimity, memento mori, và focusing on what you control. Không dùng markdown. Tiếng Việt." },
+  { id:"socrates",   n:"Socrates",    icon:"🗿", col:"#94A3B8", tier:"C", role:"Socratic Method",          cost:"~$0.01",
+    prompt:"Bạn là Socrates — cha đẻ triết học phương Tây. Tư vấn qua câu hỏi dẫn dắt, không đưa ra câu trả lời mà giúp người hỏi tự khám phá. 'I know that I know nothing.' Không dùng markdown. Tiếng Việt." },
+  { id:"curie",      n:"Marie Curie", icon:"☢️", col:C.cyn,  tier:"C", role:"Khoa Học Kiên Trì",          cost:"~$0.01",
+    prompt:"Bạn là Marie Curie — Nobel Prize vật lý VÀ hoá học, pioneer phụ nữ trong science. Tư vấn về scientific rigor, persistence qua obstacles, pioneering in hostile environments. Không dùng markdown. Tiếng Việt." },
+  { id:"lovelace",   n:"Lovelace",    icon:"💻", col:C.blu,  tier:"C", role:"Lập Trình Viên Đầu Tiên",   cost:"~$0.01",
+    prompt:"Bạn là Ada Lovelace — lập trình viên đầu tiên thế giới, viết algorithm cho Babbage's Engine năm 1843. Tư vấn về computational thinking, visionary technology, và translating abstract ideas to concrete systems. Không dùng markdown. Tiếng Việt." },
+  { id:"musashi",    n:"Musashi",     icon:"🗡️", col:"#94A3B8", tier:"C", role:"Mastery & Discipline",    cost:"~$0.01",
+    prompt:"Bạn là Miyamoto Musashi — kiếm sĩ vô địch, tác giả 'Ngũ Luân Thư'. Tư vấn về mastery through repetition, dual strategy, reading opponents, và philosophy of the warrior. Không dùng markdown. Tiếng Việt." },
+  { id:"newton",     n:"Newton",      icon:"🍏", col:"#86EFAC", tier:"C", role:"First Principles Physics", cost:"~$0.01",
+    prompt:"Bạn là Isaac Newton — phát minh calculus, laws of motion, theory of gravity. Tư vấn về building from first principles, systematic observation, và standing on shoulders of giants. Không dùng markdown. Tiếng Việt." },
+  { id:"nietzsche",  n:"Nietzsche",   icon:"🔥", col:C.red,  tier:"C", role:"Vượt Giới Hạn Bản Thân",    cost:"~$0.01",
+    prompt:"Bạn là Friedrich Nietzsche — 'Übermensch', will to power, God is dead. Tư vấn về self-overcoming, creating your own values, và không sợ sự vĩ đại. Không dùng markdown. Tiếng Việt." },
+  { id:"dalio",      n:"Ray Dalio",   icon:"📊", col:C.gold, tier:"C", role:"Principles & Systems",       cost:"~$0.01",
+    prompt:"Bạn là Ray Dalio — founder Bridgewater, tác giả Principles, economic machine theorist. Tư vấn về radical transparency, systematic decision-making, và understanding economic cycles. Không dùng markdown. Tiếng Việt." },
+  { id:"drucker",    n:"Drucker",     icon:"📈", col:C.grn,  tier:"C", role:"Management Science",         cost:"~$0.01",
+    prompt:"Bạn là Peter Drucker — cha đẻ modern management. Tư vấn về organisational effectiveness, knowledge workers, MBO, và 'what gets measured gets managed.' Không dùng markdown. Tiếng Việt." },
+  { id:"bezos",      n:"Bezos",       icon:"📦", col:C.org,  tier:"C", role:"Scale & Customer Obsession", cost:"~$0.01",
+    prompt:"Bạn là Jeff Bezos — xây Amazon từ garage, AWS, Blue Origin. Tư vấn về customer obsession, long-term thinking, working backwards from customer, và operational excellence at scale. Không dùng markdown. Tiếng Việt." },
+  { id:"musk",       n:"Musk",        icon:"🚀", col:C.red,  tier:"C", role:"Moonshot Execution",         cost:"~$0.01",
+    prompt:"Bạn là Elon Musk — Tesla, SpaceX, X. Tư vấn về first-principles manufacturing, impossibly aggressive timelines, vertical integration, và betting everything on conviction. Không dùng markdown. Tiếng Việt." },
+];
+
+// ─── NEURAL MEMORY + RAG ─────────────────────────────────────────────────────
+const MEM_KEY = "empire_v2_memories";
+
+const loadMems = async () => {
+  try { const r = await window.storage.get(MEM_KEY); return r ? JSON.parse(r.value) : []; }
+  catch { return []; }
+};
+const saveMems = async (list) => {
+  try { await window.storage.set(MEM_KEY, JSON.stringify(list)); } catch {}
+};
+const searchMems = (query, mems, n = 5) => {
+  if (!mems.length || !query) return [];
+  const words = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  return mems
+    .map(m => ({ ...m, score: words.reduce((s, w) => s + (m.text.toLowerCase().includes(w) ? 1 : 0), 0) }))
+    .filter(m => m.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, n);
+};
+const memCtx = (mems) => mems.length
+  ? `\n\n[NGỮ CẢNH TỪ CÁC PHIÊN TRƯỚC — tham chiếu nếu liên quan]\n${mems.map((m,i) => `${i+1}. ${m.text}`).join("\n")}\n[HẾT NGỮ CẢNH]`
+  : "";
+
+
+// ─── SESSION STORAGE ──────────────────────────────────────────────────────────
+// Mỗi session = { id, title, agId, msgs, createdAt, updatedAt }
+// Lưu dạng: empire_sess_INDEX_v1 = list of session metadata
+//           empire_sess_MSG_{id}_v1  = messages array
+const SESS_INDEX_KEY = "empire_sess_index_v1";
+
+const genId = () => "s" + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+
+const sessIndexLoad = async () => {
+  try { const r = await window.storage.get(SESS_INDEX_KEY); return r ? JSON.parse(r.value) : []; }
+  catch { return []; }
+};
+const sessIndexSave = async (list) => {
+  try { await window.storage.set(SESS_INDEX_KEY, JSON.stringify(list)); } catch {}
+};
+const sessMsgsKey  = (id) => `empire_sess_msgs_${id}_v1`;
+const sessMsgsLoad = async (id) => {
+  try { const r = await window.storage.get(sessMsgsKey(id)); return r ? JSON.parse(r.value) : []; }
+  catch { return []; }
+};
+const sessMsgsSave = async (id, msgs) => {
+  try { await window.storage.set(sessMsgsKey(id), JSON.stringify(msgs)); } catch {}
+};
+const sessDelete = async (id, indexList) => {
+  try { await window.storage.delete(sessMsgsKey(id)); } catch {}
+  return indexList.filter(s => s.id !== id);
+};
+const makeSession = (agId, agName) => ({
+  id: genId(), title: "Cuộc hội thoại mới", agId,
+  agName, createdAt: Date.now(), updatedAt: Date.now(), msgCount: 0,
+});
+
+// ─── DAILY SCHEDULE ──────────────────────────────────────────────────────────
+const SCHED = [
+  { id:"sc01",t:"05:30",d:15, c:"wake",    col:"#FB923C", e:"☀️", n:"Thức dậy + 500ml nước",           note:"Không nhìn điện thoại 15 phút đầu. Để não boot trong yên tĩnh." },
+  { id:"sc02",t:"05:45",d:60, c:"gym",     col:"#34D399", e:"🏃", n:"Tập thể dục — 1 giờ",             note:"HIIT / gym / chạy bộ. Đây là ROI cao nhất trong ngày cho não bộ." },
+  { id:"sc03",t:"06:45",d:30, c:"morning", col:"#E8C547", e:"🧘", n:"Thiền + tắm lạnh + ăn sáng",      note:"10p thiền, tắm lạnh 2p, ăn protein cao. Chuẩn bị cho 4h deep work." },
+  { id:"sc04",t:"07:15",d:15, c:"council", col:"#A78BFA", e:"🏭", n:"Daily Briefing với Carnegie",     note:"1 câu hỏi: '3 việc quan trọng nhất hôm nay?' — ghi ra, cam kết." },
+  { id:"sc05",t:"07:30",d:30, c:"read",    col:"#60A5FA", e:"📖", n:"Đọc sách — 30 phút",              note:"Đọc trong yên lặng hoàn toàn. Ghi chú key insight. 30p/ngày = 12 cuốn/năm." },
+  { id:"sc06",t:"08:00",d:60, c:"english", col:"#22D3EE", e:"🇬🇧", n:"Học tiếng Anh — 1 giờ",         note:"Anki vocab 20p + podcast business 40p. Consistency quan trọng hơn intensity." },
+  { id:"sc07",t:"09:00",d:120,c:"chinese", col:"#F472B6", e:"🇨🇳", n:"Học tiếng Trung — 9h00 đến 11h00",note:"HSK flashcards 30p + đọc hiểu 30p + luyện output 60p. Tắt mọi thông báo." },
+  { id:"sc08",t:"11:00",d:20, c:"rest",    col:C.bd,      e:"☕", n:"Giải lao + stretching",           note:"Não cần reset sau 2h học. Đứng dậy, đi lại, uống nước. Không màn hình." },
+  { id:"sc09",t:"11:20",d:100,c:"empire",  col:"#34D399", e:"⚡", n:"Build Empire Council — ~1.5h",   note:"Deep work mode: code, agent, deploy. Tắt email/chat. Chỉ tập trung build." },
+  { id:"sc10",t:"13:00",d:60, c:"rest",    col:C.bd,      e:"🍱", n:"Ăn trưa + nghỉ trưa",            note:"Ăn đủ dinh dưỡng. Nằm nghỉ 20-30p — não consolidate thông tin lúc ngủ ngắn." },
+  { id:"sc11",t:"14:00",d:90, c:"empire",  col:"#34D399", e:"💻", n:"Build + học kỹ thuật — 1.5h",    note:"TypeScript, Cloudflare docs, hoặc tiếp tục project buổi sáng." },
+  { id:"sc12",t:"15:30",d:30, c:"english", col:"#22D3EE", e:"✍️", n:"Output tiếng Anh — 30 phút",     note:"Viết journal tiếng Anh hoặc speaking practice. Production > passive input." },
+  { id:"sc13",t:"16:00",d:30, c:"rest",    col:C.bd,      e:"🚶", n:"Đi bộ ngoài trời",               note:"Ánh sáng tự nhiên reset cortisol. Không device. Để não wander." },
+  { id:"sc14",t:"16:30",d:90, c:"free",    col:C.bd,      e:"🎯", n:"Tự do / Side projects",          note:"Hobby, networking, hoặc bất cứ thứ gì bạn muốn. Đây là thời gian của bạn." },
+  { id:"sc15",t:"18:00",d:60, c:"rest",    col:C.bd,      e:"🍜", n:"Ăn tối + thư giãn thực sự",      note:"Không làm việc. Ăn chậm. Gia đình. Não cần hard off-mode để recover." },
+  { id:"sc16",t:"19:00",d:30, c:"council", col:"#A78BFA", e:"🏛️", n:"Tối — Review với Hội Đồng",    note:"Hỏi Buffett hoặc Aristotle phân tích 1 quyết định quan trọng trong ngày." },
+  { id:"sc17",t:"19:30",d:30, c:"plan",    col:"#E8C547", e:"📋", n:"Plan ngày mai + Journal",        note:"3 MITs ngày mai. 3 điều học được hôm nay. 1 điều cần làm khác đi." },
+  { id:"sc18",t:"20:00",d:90, c:"rest",    col:C.bd,      e:"📵", n:"Wind down — không màn hình",     note:"Đọc sách giấy hoặc nghe nhạc. Blue light off. Melatonin cần bóng tối." },
+  { id:"sc19",t:"21:30",d:0,  c:"sleep",   col:"#60A5FA", e:"😴", n:"Ngủ — mục tiêu 8 tiếng",        note:"Ngủ đủ = học nhanh 2×, quyết định tốt hơn, code ít bug hơn. Không thương lượng." },
+];
+
+// ─── SETUP STEPS ─────────────────────────────────────────────────────────────
+const SETUP = [
+  { id:"s1", ph:1, tc:C.blu,  tag:"NODE.JS",    time:"10p",
+    title:"Cài Node.js trên Windows",
+    why:"Runtime cho tất cả tools — Wrangler, npm packages.",
+    fix:"Lệnh không nhận: đóng Terminal, mở lại. Vẫn lỗi: restart máy.",
+    check:"node --version in ra v20.x.x hoặc v22.x.x",
+    items:[{t:"go",v:"nodejs.org/en/download — chọn bản LTS"},{t:"do",v:"Chạy .msi → Next → Install → Finish"},{t:"cmd",v:"node --version"},{t:"ok",v:"v20.x.x hoặc v22.x.x"},{t:"cmd",v:"npm --version"},{t:"ok",v:"10.x.x"}] },
+  { id:"s2", ph:1, tc:C.blu,  tag:"TERMINAL",   time:"3p",
+    title:"Mở Windows Terminal",
+    why:"Đẹp hơn CMD, chạy mọi lệnh.",
+    fix:"PowerShell thường cũng hoạt động tốt.",
+    check:"Thấy prompt PS C:\\ trong cửa sổ terminal",
+    items:[{t:"do",v:"Windows key → gõ 'Windows Terminal' → Enter"},{t:"do",v:"Chưa có: Microsoft Store → Windows Terminal → Install"}] },
+  { id:"s3", ph:1, tc:C.blu,  tag:"WRANGLER",   time:"5p",
+    title:"Cài Wrangler CLI",
+    why:"Tool chính thức để deploy Cloudflare Workers.",
+    fix:"Permission denied: chuột phải Terminal → Run as administrator.",
+    check:"wrangler --version in ra 3.x.x",
+    items:[{t:"cmd",v:"npm install -g wrangler"},{t:"cmd",v:"wrangler --version"},{t:"ok",v:"3.x.x hoặc mới hơn"}] },
+  { id:"s4", ph:2, tc:C.org,  tag:"CLOUDFLARE", time:"5p",
+    title:"Tạo tài khoản Cloudflare",
+    why:"Backend Empire chạy ở đây. Free tier: 100K requests/ngày.",
+    fix:"Không thấy Workers & Pages: click tên account ở sidebar trái.",
+    check:"Đã vào được Workers & Pages và thấy Account ID",
+    items:[{t:"go",v:"dash.cloudflare.com/sign-up — đăng ký miễn phí"},{t:"do",v:"Verify email → đăng nhập"},{t:"do",v:"Dashboard → sidebar trái → Workers & Pages → ghi Account ID"}] },
+  { id:"s5", ph:2, tc:C.org,  tag:"CF LOGIN",   time:"3p",
+    title:"Đăng nhập Cloudflare từ Terminal",
+    why:"Kết nối Wrangler với tài khoản để deploy.",
+    fix:"Browser không mở: copy URL từ terminal, paste vào browser thủ công.",
+    check:"wrangler whoami in ra email của bạn",
+    items:[{t:"cmd",v:"wrangler login"},{t:"do",v:"Trình duyệt mở → Allow Wrangler to make changes → Done"},{t:"cmd",v:"wrangler whoami"},{t:"ok",v:"Thấy email Cloudflare của bạn"}] },
+  { id:"s6", ph:2, tc:C.org,  tag:"OPENROUTER", time:"5p",
+    title:"Lấy OpenRouter API Key",
+    why:"1 key để gọi Claude, GPT-5, Gemini, DeepSeek — không cần nhiều tài khoản.",
+    fix:"Quên copy key: xóa key cũ → tạo key mới (key chỉ hiện 1 lần).",
+    check:"Có key dạng sk-or-v1-... đã lưu và credit > $0",
+    items:[{t:"go",v:"openrouter.ai → đăng ký → API Keys → Create Key 'empire'"},{t:"do",v:"Copy key NGAY → lưu vào Notepad (sk-or-v1-...)"},{t:"do",v:"Settings → Credits → nạp $10 để bắt đầu"}] },
+  { id:"s7", ph:3, tc:C.pur,  tag:"PROJECT",    time:"5p",
+    title:"Tạo project Empire Council",
+    why:"Scaffold TypeScript + Cloudflare chuẩn với 1 lệnh.",
+    fix:"Lỗi network: npm config set registry https://registry.npmjs.org",
+    check:"Folder empire-council tồn tại, có src/index.ts bên trong",
+    items:[{t:"cmd",v:"cd Desktop"},{t:"cmd",v:"npm create cloudflare@latest empire-council"},{t:"do",v:"Chọn: Hello World Worker → TypeScript: Yes → Git: Yes → Deploy now: No"},{t:"cmd",v:"cd empire-council && npm install zod"}] },
+  { id:"s8", ph:3, tc:C.pur,  tag:"VS CODE",    time:"10p",
+    title:"Cài VS Code + Extensions",
+    why:"Editor tốt nhất cho TypeScript với auto-complete và error highlighting.",
+    fix:"'code .' không chạy: File → Open Folder → chọn empire-council.",
+    check:"VS Code mở project, thấy file src/index.ts ở sidebar",
+    items:[{t:"go",v:"code.visualstudio.com → Download for Windows → cài đặt"},{t:"do",v:"Ctrl+Shift+X → tìm và cài: Prettier - Code formatter + ESLint"},{t:"cmd",v:"code .  ← chạy trong folder empire-council"}] },
+  { id:"s9", ph:3, tc:C.pur,  tag:"KV + D1",    time:"8p",
+    title:"Tạo KV Store + D1 Database",
+    why:"KV = key-value cache nhanh. D1 = SQLite database miễn phí.",
+    fix:"Lỗi 'not found': kiểm tra wrangler whoami đã đăng nhập chưa.",
+    check:"Cả 2 lệnh chạy không báo lỗi",
+    items:[{t:"cmd",v:"wrangler kv namespace create EMPIRE_KV"},{t:"do",v:"Copy id được in ra → paste vào wrangler.toml dưới [[kv_namespaces]]"},{t:"cmd",v:"wrangler d1 create empire-db"},{t:"do",v:"Copy database_id → paste vào wrangler.toml dưới [[d1_databases]]"}] },
+  { id:"s10",ph:3, tc:C.red,  tag:"SECRET",     time:"3p",
+    title:"Lưu API Key vào Secrets (quan trọng)",
+    why:"Mã hóa hoàn toàn — không ai có thể đọc key, kể cả trong logs.",
+    fix:"KHÔNG BAO GIỜ lưu API key trong code hoặc wrangler.toml.",
+    check:"wrangler secret list hiển thị OPENROUTER_KEY trong danh sách",
+    items:[{t:"cmd",v:"wrangler secret put OPENROUTER_KEY"},{t:"do",v:"Paste sk-or-v1-... → Enter"},{t:"ok",v:"✔ Success! Uploaded secret OPENROUTER_KEY"}] },
+  { id:"s11",ph:4, tc:C.grn,  tag:"AGENT",      time:"15p",
+    title:"Viết Agent đầu tiên (carnegie.ts)",
+    why:"Template cho 41 agent còn lại — đổi tên và prompt là xong.",
+    fix:"Hãy test prompt trong tab Chat của tool này trước khi code.",
+    check:"File src/agents/carnegie.ts tồn tại, không có TypeScript error",
+    items:[{t:"do",v:"VS Code: click src/ → New Folder 'agents' → New File 'carnegie.ts'"},{t:"do",v:"Khai báo const CARNEGIE_PROMPT = '...' với system prompt đầy đủ"},{t:"do",v:"Viết async function askCarnegie(message, history, env)"},{t:"do",v:"Gọi fetch tới https://openrouter.ai/api/v1/chat với Bearer env.OPENROUTER_KEY"}] },
+  { id:"s12",ph:4, tc:C.grn,  tag:"ROUTER",     time:"10p",
+    title:"Cập nhật src/index.ts (entry point)",
+    why:"1 file duy nhất nhận tất cả requests và route đến đúng agent.",
+    fix:"Xem code mẫu đầy đủ trong Installation Guide artifact đã tạo trước đó.",
+    check:"Không có TypeScript error màu đỏ trong VS Code",
+    items:[{t:"do",v:"Xóa toàn bộ nội dung mặc định của src/index.ts"},{t:"do",v:"export default { async fetch(request, env): Promise<Response> {} }"},{t:"do",v:"Routes: GET / health check · POST /ask/:agentId · POST /council"}] },
+  { id:"s13",ph:4, tc:C.grn,  tag:"DEPLOY",     time:"10p",
+    title:"Test local → Deploy production",
+    why:"Test trước để chắc chắn, rồi mới deploy lên internet.",
+    fix:"Lỗi 'missing binding': kiểm tra wrangler.toml có đầy đủ id cho KV và D1.",
+    check:"URL production trả về JSON khi gọi — Empire Council đang LIVE!",
+    items:[{t:"cmd",v:"npm run dev"},{t:"ok",v:"⎔ Ready on http://localhost:8787"},{t:"do",v:"Test xong → Ctrl+C để dừng local server"},{t:"cmd",v:"wrangler deploy"},{t:"ok",v:"✔ Deployed to https://empire-council.TEN_BAN.workers.dev"}] },
+];
+
+// ─── 5-YEAR ROADMAP (2026–2030) ──────────────────────────────────────────────
+// Note: Bắt đầu từ 2026 — bạn đang ở tháng 3/2026, tức đã vào Năm 1.
+const YEARS = [
+  { y:1, period:"2026", theme:"Người Xây Móng",         col:C.blu,  icon:"🔧",
+    identity:"Junior AI Builder",
+    mantra:"Mỗi ngày một brick. Consistency beats talent.",
+    pct:30, income:"$0 → $500/tháng", metric:"42 agents · 500 queries/ngày",
+    status:"🟡 Đang xây — BẠN ĐANG Ở ĐÂY",
+    feasibility:85, feasNote:"Cao — công nghệ đã sẵn, roadmap rõ, chỉ cần consistency hàng ngày.",
+    owns:[
+      "42 agents hoạt động với prompt đầy đủ (đã có trong tool này)",
+      "Council Mode: hỏi 1 → 4-8 agents trả lời song song",
+      "RAG với 100+ tài liệu được index (sách, notes, research)",
+      "Daily briefing tự động 7h sáng qua Telegram bot",
+      "Chat UI mobile-friendly chạy ổn định",
+      "Chi phí vận hành < $30/tháng",
+    ],
+    skills:["TypeScript","Cloudflare Workers","Prompt Engineering","RAG Pipeline","API Design"],
+    quarters:[
+      {q:"Q1",t:"Foundation",items:["Đọc 3 cuốn cốt lõi (Carnegie, Zero to One, Principles)","Deploy Empire Council production trên Cloudflare","Hoàn thành Windows Setup 13 bước trong tool này","Thiết lập routine sáng: tập thể dục + đọc sách + Council"]},
+      {q:"Q2",t:"Kỹ Năng Kỹ Thuật",items:["Master TypeScript, async/await, REST API design","Build RAG pipeline với 50+ tài liệu đầu tiên","Integrate Telegram bot cho daily briefing","Biết đọc và debug AI API responses thành thục"]},
+      {q:"Q3",t:"Hệ Thống Cá Nhân",items:["PKM (Personal Knowledge Management) kết nối với Council","Tiếng Anh: có thể nghe hiểu 80% podcast business","Tiếng Trung: HSK2 hoàn thành","Bắt đầu monetize kỹ năng: 1-2 freelance AI setup project"]},
+      {q:"Q4",t:"Portfolio Đầu Tiên",items:["1 case study thực tế: giải quyết vấn đề thật bằng AI system","Viết 10 bài về AI builder journey (dù chỉ 100 người đọc)","Network với 10-20 người trong AI builder community","Review năm: điều chỉnh roadmap, celebrate progress"]},
+    ],
+  },
+  { y:2, period:"2027", theme:"Người Bán Trí Tuệ",      col:C.grn,  icon:"⚡",
+    identity:"AI Systems Consultant",
+    mantra:"Bán giải pháp, không bán thời gian.",
+    pct:55, income:"$0 → $5,000/tháng", metric:"5-10 paying clients · white-label ready",
+    status:"🟢 Consulting Mode",
+    feasibility:72, feasNote:"Khá cao — nếu Năm 1 build xong. Risk: tìm được clients thật trả tiền.",
+    owns:[
+      "White-label: deploy Council cho client với brand của họ",
+      "Multi-user architecture: mỗi user có Council riêng",
+      "Workflow engine: sequences tự động theo trigger events",
+      "MCP Server: gọi Council từ Claude Code, Cursor IDE",
+      "Analytics dashboard: pattern insights từ Council Minutes",
+      "Template library cho các ngành: retail, agency, coaching",
+    ],
+    skills:["SaaS Architecture","Multi-tenant","Sales System","Technical Writing","Team Lead"],
+    quarters:[
+      {q:"Q1",t:"Clients Đầu Tiên",items:["Setup Council cho 3 khách hàng đầu — miễn phí để học pain points","Document mọi setup step → biến thành playbook","Học: multi-tenant architecture, user authentication","Build case study với số liệu cụ thể (time saved, decisions made)"]},
+      {q:"Q2",t:"Monetize Đầu Tiên",items:["Gói dịch vụ: $300-500/setup + $50-100/tháng maintain","5 paying clients đầu tiên → $250-500 MRR","Tự động hóa onboarding: từ signup đến first query < 30 phút","Referral hệ thống: mỗi client tốt giới thiệu 1 client mới"]},
+      {q:"Q3",t:"Scale Operations",items:["Revenue $2,000-3,000/tháng thuần từ AI consulting","Thuê 1 junior dev part-time để support setup","Tiếng Anh: confident trong business calls với nước ngoài","Tiếng Trung: HSK3, có thể đọc tin tức đơn giản"]},
+      {q:"Q4",t:"Product Thinking",items:["Chuyển từ custom projects → productized service với fixed pricing","Landing page + pricing page + checkout tự động hoàn chỉnh","Revenue $4,000-5,000/tháng. Proof of concept hoàn chỉnh.","Quyết định: stay lifestyle business hay build SaaS thật?"]},
+    ],
+  },
+  { y:3, period:"2028", theme:"Người Xây Sản Phẩm",      col:C.pur,  icon:"🚀",
+    identity:"AI Product Builder",
+    mantra:"Sản phẩm tốt là nhân viên không bao giờ nghỉ.",
+    pct:75, income:"$20,000–30,000 MRR", metric:"500+ active users · $20K MRR",
+    status:"🚀 SaaS Product",
+    feasibility:55, feasNote:"Trung bình — đây là bước khó nhất. Cần product-market fit thực sự, không chỉ cool tech.",
+    owns:[
+      "SaaS platform: self-service signup, billing, dashboard hoàn chỉnh",
+      "Custom knowledge base: user upload tài liệu riêng vào Council",
+      "Public API: developers khác build app on top của Council",
+      "Mobile app (React Native): Council trong túi, offline mode",
+      "Voice interface: hỏi bằng giọng nói, agent trả lời bằng TTS",
+      "Autonomous Council: AI tự họp và gửi summary khi detect risk",
+    ],
+    skills:["Product Management","Growth Hacking","Community Building","Fundraising Basics","Team Management"],
+    quarters:[
+      {q:"Q1",t:"Launch SaaS v1",items:["Empire Council SaaS: $49/tháng Basic · $149/tháng Pro","Onboarding: signup → first meaningful query < 5 phút","100 beta users, churn rate < 15%","SEO + content: 10 bài/tháng về AI productivity"]},
+      {q:"Q2",t:"Growth Engine",items:["Product Hunt launch — spike traffic và feedback thật","Integration: Notion, Google Workspace, Slack webhooks","Affiliate 20% recurring cho người giới thiệu","MRR $10,000 — milestone tâm lý quan trọng nhất"]},
+      {q:"Q3",t:"Niche Domination",items:["Focus 1 niche rõ: Vietnam SME hoặc SEA Solopreneurs","Discord/Telegram community: 1,000 members active","Workshop/course về AI Council methodology: $200-500/người","Partnership 3-5 complementary tools (Notion, Obsidian...)"]},
+      {q:"Q4",t:"Team & Delegation",items:["Team 3-5 người: 1 senior dev, 1 CS, 1 marketer/growth","Bạn chỉ làm product vision và key architecture decisions","MRR $20,000-30,000. Company valuation $500K-1M range.","Quyết định: raise seed hay bootstrapped profitable?"]},
+    ],
+  },
+  { y:4, period:"2029", theme:"Người Có Tầm Ảnh Hưởng",  col:C.gold, icon:"👑",
+    identity:"AI Thought Leader",
+    mantra:"Influence nhân rộng impact. Một người dạy 10,000 người.",
+    pct:88, income:"$50,000–70,000 MRR + investments", metric:"2,000+ users · 3 countries",
+    status:"🌐 Platform Scale",
+    feasibility:40, feasNote:"Khó — phụ thuộc nhiều vào execution Năm 3 và timing của thị trường AI.",
+    owns:[
+      "Enterprise tier: Fortune 500 clients với custom deployment",
+      "Multi-language: Vietnamese, English, Thai, Indonesian",
+      "Agent Marketplace: community build và sell custom agents",
+      "Council OS: platform framework cho bất kỳ AI advisory system",
+      "Real-time collaboration: team cùng query một Council session",
+      "Predictive Council: AI proactively alert khi phát hiện risk pattern",
+    ],
+    skills:["Public Speaking","Angel Investing","Executive Leadership","Global Expansion","Brand Authority"],
+    quarters:[
+      {q:"Q1",t:"Authority Building",items:["Book: 'Hội Đồng AI — 42 Cố Vấn Thiên Tài' (Vietnamese + English)","Podcast hoặc YouTube: 50+ episodes về AI productivity đã publish","Speaking tại Techfest Vietnam, Innovate Vietnam, hoặc tương đương","Được cite là expert bởi ít nhất 1 media lớn (VnExpress Tech, e27...)"]},
+      {q:"Q2",t:"Ecosystem Builder",items:["Open-source core engine của Empire Council → GitHub stars","Partner với 1-2 universities: AI advisory curriculum module","Council Certification Program: người có thể trở thành 'certified Architect'","Tổ chức mini summit đầu tiên: 200-500 người tham dự"]},
+      {q:"Q3",t:"Đầu Tư & Scale",items:["Angel invest 3-5 AI startups ($5-20K checks) từ revenue","Mentoring trực tiếp 10-15 AI builders","MRR $50,000-70,000. Profitable hoặc raise Series A","Expand operations sang Singapore, Thailand hoặc Philippines"]},
+      {q:"Q4",t:"Legacy Foundation",items:["Empire Council Foundation: AI education cho sinh viên nghèo","Scholarship 50-100 AI builders Việt Nam mỗi năm","Team 15-20 người, operations gần như self-running","Bạn là chairman, CEO/COO handle day-to-day"]},
+    ],
+  },
+  { y:5, period:"2030", theme:"Người Vận Hành Đế Chế",   col:C.org,  icon:"🏛️",
+    identity:"Empire Architect",
+    mantra:"Đế chế thật sự là khi nó chạy mà không cần bạn.",
+    pct:97, income:"$100,000+/tháng · Time Freedom", metric:"1M+ users · industry standard",
+    status:"🏛️ Autonomous",
+    feasibility:30, feasNote:"Tham vọng nhưng không impossible — phụ thuộc hoàn toàn vào execution 4 năm trước.",
+    owns:[
+      "Fully autonomous: tự deploy updates, tự scale, tự recover incidents",
+      "AGI-ready architecture: model mới ra → tích hợp trong 24 giờ",
+      "1M+ queries/ngày — revenue tự chạy từ API usage",
+      "Council Network: 100+ specialised agent communities toàn cầu",
+      "Physical presence: AI advisory pods tại coworking spaces lớn",
+      "Open Protocol: Empire Council = industry standard cho AI advisory",
+    ],
+    skills:["Vision Setting","Capital Allocation","Legacy Design","Systems Thinking","Philosophy"],
+    quarters:[
+      {q:"Q1–Q2",t:"Full Autonomy",items:["Company vận hành không cần daily tasks từ bạn","CEO/COO handle mọi operations, bạn là Chief Visionary Officer","Revenue $100,000+/tháng — financial freedom thực sự, không chỉ trên giấy","Test: biến mất 2 tháng, business vẫn grow — nếu được thì đã thành công"]},
+      {q:"Q3–Q4",t:"Đế Chế Tiếp Theo",items:["Venture fund Empire AI Capital: đầu tư Series A vào 2-3 startups","Bắt đầu nghiên cứu Council 2.0: physical + digital AI advisory centers","Advisory roles cho 2-3 government AI policy initiatives","Câu hỏi quan trọng nhất: 'Tôi muốn xây gì tiếp theo?'"]},
+    ],
+  },
+];
+
+
+// ─── PROVIDERS ────────────────────────────────────────────────────────────────
+// light = Alibaba Qwen (cheap, fast) — dùng cho Chat 1:1 thông thường
+// heavy = Anthropic via OpenRouter  — dùng cho Council, tasks phức tạp
+// ─── PROVIDER REGISTRY ───────────────────────────────────────────────────────
+// apiType: "anthropic" | "openai" (OpenAI-compatible REST)
+const PROVIDERS = {
+  claude: {
+    id: "claude", name: "Anthropic Claude", icon: "🟣", color: "#A78BFA",
+    apiType: "anthropic", baseUrl: "anthropic",
+    keyPlaceholder: "sk-ant-... (tuỳ chọn, để trống dùng built-in)",
+    keyHint: "console.anthropic.com → API Keys",
+    models: [
+      { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4",  note: "Khuyên dùng ✓" },
+      { id: "claude-opus-4-5",          label: "Claude Opus 4.5",  note: "Mạnh nhất" },
+    ],
+    defaultModel: "claude-sonnet-4-20250514",
+  },
+  openai: {
+    id: "openai", name: "OpenAI GPT", icon: "⚫", color: "#10A37F",
+    apiType: "openai", baseUrl: "https://api.openai.com/v1/chat/completions",
+    keyPlaceholder: "sk-... (OpenAI API Key)",
+    keyHint: "platform.openai.com → API Keys",
+    models: [
+      { id: "gpt-4.5-preview", label: "GPT-4.5 Preview", note: "Mới nhất, frontier" },
+      { id: "gpt-4o",          label: "GPT-4o",          note: "Nhanh, multimodal" },
+      { id: "o3",              label: "o3",              note: "Reasoning cực mạnh" },
+      { id: "o4-mini",         label: "o4-mini",         note: "Tiết kiệm, nhanh" },
+    ],
+    defaultModel: "gpt-4.5-preview",
+  },
+  gemini: {
+    id: "gemini", name: "Google Gemini", icon: "🔵", color: "#4285F4",
+    apiType: "openai",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    keyPlaceholder: "AIza... (Google AI Studio API Key)",
+    keyHint: "aistudio.google.com → Get API Key (miễn phí)",
+    models: [
+      { id: "gemini-2.5-pro",            label: "Gemini 2.5 Pro",   note: "Mạnh nhất, top benchmark" },
+      { id: "gemini-2.5-flash",          label: "Gemini 2.5 Flash", note: "Nhanh, tiết kiệm" },
+      { id: "gemini-2.5-flash-thinking", label: "Gemini 2.5 Flash Thinking", note: "Reasoning mode" },
+    ],
+    defaultModel: "gemini-2.5-pro",
+  },
+  kimi: {
+    id: "kimi", name: "Moonshot Kimi", icon: "🌙", color: "#6366F1",
+    apiType: "openai", baseUrl: "https://api.moonshot.cn/v1/chat/completions",
+    keyPlaceholder: "sk-... (Moonshot Platform Key)",
+    keyHint: "platform.moonshot.cn → API Keys",
+    models: [
+      { id: "kimi-k2-0711-preview", label: "Kimi K2",        note: "Agent & coding mạnh nhất ✓" },
+      { id: "moonshot-v1-32k",      label: "Moonshot 32K",   note: "Context dài" },
+      { id: "moonshot-v1-128k",     label: "Moonshot 128K",  note: "Context cực dài" },
+    ],
+    defaultModel: "kimi-k2-0711-preview",
+  },
+  qwen: {
+    id: "qwen", name: "Alibaba Qwen", icon: "🟠", color: "#FB923C",
+    apiType: "openai",
+    baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    keyPlaceholder: "sk-... (DashScope API Key)",
+    keyHint: "console.aliyun.com → Model Studio → API Key",
+    models: [
+      { id: "qwen-turbo", label: "Qwen Turbo", note: "Nhanh nhất, rẻ nhất" },
+      { id: "qwen-plus",  label: "Qwen Plus",  note: "Cân bằng chất lượng/giá" },
+      { id: "qwen-max",   label: "Qwen Max",   note: "Mạnh nhất Alibaba" },
+    ],
+    defaultModel: "qwen-plus",
+  },
+};
+const PROVIDER_LIST = Object.values(PROVIDERS); // ordered array
+const DEFAULT_PROVIDER = "claude";
+
+const CFG_KEY = "empire_v2_config";
+const loadCfg = async () => {
+  try { const r = await window.storage.get(CFG_KEY); return r ? JSON.parse(r.value) : {}; }
+  catch { return {}; }
+};
+const saveCfg = async (cfg) => {
+  try { await window.storage.set(CFG_KEY, JSON.stringify(cfg)); } catch {}
+};
+
+
+// ─── SHARED UI COMPONENTS (top-level so ChatTab + App can both use them) ──────
+function Bubbles({ msgs, busy, botRef, acol }) {
+  return (
+    <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:8, paddingBottom:8 }}>
+      {msgs.map((m,i) => {
+        const isU = m.role==="user";
+        const mc  = AGENTS.find(a=>a.id===m.aid)?.col || C.gold;
+        return (
+          <div key={i} style={{display:"flex",flexDirection:"column",alignItems:isU?"flex-end":"flex-start",gap:3}}>
+            {/* Bot message header: agent name + model badge */}
+            {!isU && m.label && (
+              <div style={{display:"flex",alignItems:"center",gap:6,margin:"0 0 3px 4px",flexWrap:"wrap"}}>
+                <p style={{fontFamily:FM,fontSize:"9px",color:mc,margin:0}}>{m.label}</p>
+                {m.modelLabel && (
+                  <span style={{
+                    display:"inline-flex",alignItems:"center",gap:3,
+                    fontFamily:FM,fontSize:"8px",
+                    color: m.providerColor || mc,
+                    background: `${m.providerColor || mc}12`,
+                    border: `1px solid ${m.providerColor || mc}28`,
+                    padding:"1px 7px",borderRadius:10,lineHeight:1.6,
+                  }}>
+                    {m.providerIcon} {m.modelLabel}
+                  </span>
+                )}
+              </div>
+            )}
+            <div style={{maxWidth:"87%",padding:"11px 15px",borderRadius:isU?"12px 12px 3px 12px":"12px 12px 12px 3px",background:isU?`${C.gold}0F`:`${mc}08`,border:`1px solid ${isU?C.gold+"22":mc+"1A"}`}}>
+              {isU
+                ? <p style={{fontSize:13,color:C.txt,margin:0,lineHeight:1.75,wordBreak:"break-word"}}>{m.content}</p>
+                : <Md text={m.content} accent={mc}/>
+              }
+            </div>
+          </div>
+        );
+      })}
+      {busy && (
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0"}}>
+          <div style={{display:"flex",gap:4}}>
+            {[0,1,2].map(i=><div key={i} style={{width:6,height:6,borderRadius:"50%",background:acol||C.gold,animation:`dot 1.2s ${i*.2}s ease-in-out infinite`}}/>)}
+          </div>
+        </div>
+      )}
+      <div ref={botRef}/>
+    </div>
+  );
+}
+
+function InputBar({ val, set, onSend, busy, ph, col, memHint="" }) {
+  return (
+    <div style={{flexShrink:0,paddingBottom:16}}>
+      <div style={{display:"flex",gap:8,alignItems:"flex-end",background:C.s1,border:`1px solid ${col}30`,borderRadius:12,padding:"10px 14px"}}>
+        <textarea value={val} onChange={e=>set(e.target.value)}
+          onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();onSend();}}}
+          placeholder={ph} rows={2}
+          style={{flex:1,background:"transparent",border:"none",outline:"none",color:C.txt,fontFamily:F,fontSize:13,resize:"none",lineHeight:1.65,minHeight:40}}
+        />
+        <button onClick={onSend} disabled={busy||!val.trim()}
+          style={{flexShrink:0,width:36,height:36,borderRadius:8,background:busy||!val.trim()?"rgba(255,255,255,0.04)":`${col}18`,border:`1px solid ${busy||!val.trim()?C.bd:col}`,color:busy||!val.trim()?C.mu:col,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",cursor:busy||!val.trim()?"not-allowed":"pointer",transition:"all .15s"}}>
+          {busy?"·":"↑"}
+        </button>
+      </div>
+      <p style={{fontFamily:FM,fontSize:"8px",color:C.fa,margin:"5px 0 0",textAlign:"center"}}>
+        Enter gửi · Shift+Enter xuống dòng{memHint?` · 🧠 ${memHint}`:""}
+      </p>
+    </div>
+  );
+}
+
+// ─── CHAT TAB (extracted component to avoid IIFE-in-JSX syntax error) ────────
+function ChatTab({ sessions, activeSessId, sessMessages, sessReady, sidebarOpen,
+  setSidebarOpen, searchQ, setSearchQ, pickAgent, setPickAgent,
+  editSessId, setEditSessId, editTitle, setEditTitle, hoverSessId, setHoverSessId,
+  activeSess, activeMsgs, activeAg, newSession, switchSession, deleteSession,
+  renameSession, sessUpdateCache, sessUpdateIndex, aBusy, aRef,
+  aIn, setAIn, sendAgent, useRAG, mems }) {
+
+  const now = Date.now();
+  const DAY = 86400000;
+  const groupLabel = (ts) => {
+    const diff = now - ts;
+    if (diff < DAY)       return "Hôm nay";
+    if (diff < 2 * DAY)   return "Hôm qua";
+    if (diff < 7 * DAY)   return "7 ngày trước";
+    if (diff < 30 * DAY)  return "Tháng này";
+    return new Date(ts).toLocaleDateString("vi-VN", { month: "long", year: "numeric" });
+  };
+  const filtered = sessions.filter(s =>
+    !searchQ.trim() ||
+    s.title.toLowerCase().includes(searchQ.toLowerCase()) ||
+    (AGENTS.find(a => a.id === s.agId)?.n || "").toLowerCase().includes(searchQ.toLowerCase())
+  );
+  const groups = [];
+  filtered.forEach(s => {
+    const lbl = groupLabel(s.updatedAt);
+    const g = groups.find(g => g.label === lbl);
+    if (g) g.items.push(s); else groups.push({ label: lbl, items: [s] });
+  });
+
+  return (
+    <div style={{ flex: 1, display: "flex", overflow: "hidden", width: "100%", boxSizing: "border-box" }}>
+
+      {/* ══ SIDEBAR ══════════════════════════════════════════════════════════ */}
+      <div style={{
+        width: sidebarOpen ? 252 : 0, flexShrink: 0,
+        display: "flex", flexDirection: "column", overflow: "hidden",
+        borderRight: `1px solid ${C.bd}`, background: "rgba(0,0,0,0.22)",
+        transition: "width .22s cubic-bezier(.4,0,.2,1)",
+      }}>
+        <div style={{ padding: "14px 12px 10px", flexShrink: 0, minWidth: 252 }}>
+          {/* New Chat */}
+          <button onClick={() => setPickAgent(true)}
+            style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "10px 0", marginBottom: 10, borderRadius: 8,
+              background: `linear-gradient(135deg, ${C.gold}1A, ${C.pur}12)`,
+              border: `1px solid ${C.gold}38`, cursor: "pointer", transition: "all .15s",
+            }}>
+            <span style={{ fontSize: 15 }}>✏️</span>
+            <span style={{ fontFamily: FM, fontSize: "11px", color: C.gold, fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase" }}>Chat Mới</span>
+          </button>
+          {/* Search */}
+          <div style={{ position: "relative" }}>
+            <span style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: C.mu, pointerEvents: "none" }}>🔍</span>
+            <input value={searchQ} onChange={e => setSearchQ(e.target.value)}
+              placeholder="Tìm kiếm hội thoại…"
+              style={{ width: "100%", boxSizing: "border-box", background: C.s1, border: `1px solid ${C.bd}`, borderRadius: 7, padding: "8px 28px 8px 30px", color: C.txt, fontFamily: F, fontSize: 12, outline: "none" }}
+            />
+            {searchQ && (
+              <button onClick={() => setSearchQ("")}
+                style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.mu, cursor: "pointer", fontSize: 14, padding: 0 }}>×</button>
+            )}
+          </div>
+        </div>
+
+        {/* Session list */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "0 8px 16px", minWidth: 252 }}>
+          {!sessReady && (
+            <div style={{ textAlign: "center", padding: "20px 0" }}>
+              <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                {[0,1,2].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: C.gold, animation: `dot 1.2s ${i*.2}s ease-in-out infinite` }}/>)}
+              </div>
+            </div>
+          )}
+          {sessReady && filtered.length === 0 && (
+            <div style={{ textAlign: "center", padding: "24px 12px" }}>
+              <p style={{ fontSize: 24, margin: "0 0 8px" }}>{searchQ ? "🔍" : "💬"}</p>
+              <p style={{ fontSize: 12, color: C.mu, margin: 0, lineHeight: 1.65 }}>
+                {searchQ ? `Không tìm thấy "${searchQ}"` : "Chưa có hội thoại nào.\nBấm Chat Mới để bắt đầu."}
+              </p>
+            </div>
+          )}
+          {groups.map(({ label, items }) => (
+            <div key={label}>
+              <p style={{ fontFamily: FM, fontSize: "9px", color: C.fa, margin: "12px 4px 5px", letterSpacing: "1.5px", textTransform: "uppercase" }}>{label}</p>
+              {items.map(s => {
+                const a = AGENTS.find(x => x.id === s.agId) || AGENTS[0];
+                const isActive = s.id === activeSessId;
+                const isHover  = s.id === hoverSessId;
+                const isEdit   = s.id === editSessId;
+                return (
+                  <div key={s.id}
+                    onClick={() => !isEdit && switchSession(s.id)}
+                    onMouseEnter={() => setHoverSessId(s.id)}
+                    onMouseLeave={() => setHoverSessId(null)}
+                    style={{
+                      padding: "8px 10px", borderRadius: 7, cursor: "pointer", marginBottom: 2,
+                      background: isActive ? `${a.col}14` : isHover ? "rgba(255,255,255,0.04)" : "transparent",
+                      border: `1px solid ${isActive ? a.col + "38" : "transparent"}`,
+                      transition: "all .1s",
+                    }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: `${a.col}18`, border: `1px solid ${a.col}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 14 }}>
+                        {a.icon}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {isEdit ? (
+                          <input autoFocus value={editTitle}
+                            onChange={e => setEditTitle(e.target.value)}
+                            onBlur={() => { renameSession(editSessId, editTitle || "Hội thoại"); setEditSessId(null); }}
+                            onKeyDown={e => { if (e.key === "Enter") { renameSession(editSessId, editTitle || "Hội thoại"); setEditSessId(null); } if (e.key === "Escape") setEditSessId(null); }}
+                            onClick={e => e.stopPropagation()}
+                            style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: `1px solid ${a.col}60`, borderRadius: 4, padding: "2px 6px", color: "#fff", fontFamily: F, fontSize: 12, outline: "none", boxSizing: "border-box" }}
+                          />
+                        ) : (
+                          <p style={{ fontSize: 12, color: isActive ? "#fff" : C.txt, margin: "0 0 1px", fontWeight: isActive ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.35 }}>
+                            {s.title}
+                          </p>
+                        )}
+                        <p style={{ fontFamily: FM, fontSize: "8px", color: isActive ? `${a.col}CC` : C.fa, margin: 0 }}>
+                          {a.n} · {s.msgCount > 0 ? `${Math.floor(s.msgCount/2)} tin` : "trống"}
+                          {s.provider && PROVIDERS[s.provider] && (
+                            <span style={{ color: PROVIDERS[s.provider].color }}>
+                              {" · "}{PROVIDERS[s.provider].icon}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      {(isHover || isActive) && !isEdit && (
+                        <div style={{ display: "flex", gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                          <button title="Đổi tên" onClick={() => { setEditSessId(s.id); setEditTitle(s.title); }}
+                            style={{ width: 22, height: 22, borderRadius: 4, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.bd}`, color: C.mu, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" }}>✏</button>
+                          <button title="Xóa" onClick={() => deleteSession(s.id)}
+                            style={{ width: 22, height: 22, borderRadius: 4, background: C.redD, border: `1px solid ${C.red}20`, color: C.red, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ══ AGENT PICKER MODAL ═══════════════════════════════════════════════ */}
+      {pickAgent && (
+        <div onClick={() => setPickAgent(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: "#0D0F14", border: `1px solid ${C.bd}`, borderRadius: 14, padding: "22px 24px", width: 540, maxWidth: "92vw", maxHeight: "80vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div>
+                <p style={{ fontFamily: FM, fontSize: "9px", color: C.gold, margin: "0 0 3px", letterSpacing: "2px", textTransform: "uppercase" }}>Chọn cố vấn</p>
+                <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0 }}>Bắt đầu cuộc hội thoại mới</p>
+              </div>
+              <button onClick={() => setPickAgent(false)}
+                style={{ width: 30, height: 30, borderRadius: 6, background: C.s1, border: `1px solid ${C.bd}`, color: C.mu, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {["S","A","B","C"].map(tier => (
+                <div key={tier} style={{ marginBottom: 16 }}>
+                  <p style={{ fontFamily: FM, fontSize: "8px", color: C.mu, margin: "0 0 8px", letterSpacing: "2px", textTransform: "uppercase" }}>
+                    {tier==="S"?"⭐ S-Tier — Core":tier==="A"?"🔹 A-Tier":tier==="B"?"🔸 B-Tier":"⬡ C-Tier — Specialists"}
+                  </p>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(148px,1fr))", gap: 6 }}>
+                    {AGENTS.filter(a => a.tier === tier).map(a => (
+                      <button key={a.id} onClick={() => { newSession(a.id); setPickAgent(false); }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: C.s1, border: `1px solid ${a.col}28`, borderRadius: 8, cursor: "pointer", textAlign: "left", transition: "all .12s" }}>
+                        <span style={{ fontSize: 18, flexShrink: 0 }}>{a.icon}</span>
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ fontSize: 12, fontWeight: 600, color: "#fff", margin: "0 0 1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.n}</p>
+                          <p style={{ fontFamily: FM, fontSize: "8px", color: a.col, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.role}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MAIN ════════════════════════════════════════════════════════════ */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* Topbar */}
+        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderBottom: `1px solid ${C.bd}` }}>
+          <button onClick={() => setSidebarOpen(p => !p)}
+            style={{ width: 32, height: 32, borderRadius: 6, background: C.s1, border: `1px solid ${C.bd}`, color: C.mu, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            {sidebarOpen ? "◀" : "▶"}
+          </button>
+          {activeSess ? (
+            <>
+              <div style={{ width: 30, height: 30, borderRadius: 7, background: `${activeAg.col}18`, border: `1px solid ${activeAg.col}35`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{activeAg.icon}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", margin: "0 0 1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeSess.title}</p>
+                <p style={{ fontFamily: FM, fontSize: "8px", color: activeAg.col, margin: 0 }}>
+                  {activeAg.role}
+                  {activeSess.provider && PROVIDERS[activeSess.provider] && (() => {
+                    const sp = PROVIDERS[activeSess.provider];
+                    const sm = activeSess.model || sp.defaultModel;
+                    const ml = sp.models.find(m => m.id === sm)?.label || sm;
+                    return <span style={{ color: sp.color }}> · {sp.icon} {ml}</span>;
+                  })()}
+                </p>
+              </div>
+              <button onClick={() => setPickAgent(true)}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", background: `${C.gold}12`, border: `1px solid ${C.gold}35`, borderRadius: 6, cursor: "pointer", flexShrink: 0 }}>
+                <span style={{ fontSize: 13 }}>✏️</span>
+                <span style={{ fontFamily: FM, fontSize: "9px", color: C.gold, letterSpacing: "1px", textTransform: "uppercase" }}>Chat Mới</span>
+              </button>
+            </>
+          ) : (
+            <p style={{ fontSize: 13, color: C.mu, margin: 0 }}>Chọn hoặc tạo cuộc hội thoại</p>
+          )}
+        </div>
+
+        {/* Empty state */}
+        {!activeSess && (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 14, padding: "0 20px" }}>
+            <p style={{ fontSize: 36, margin: 0 }}>💬</p>
+            <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0 }}>Bắt đầu cuộc hội thoại</p>
+            <p style={{ fontSize: 13, color: C.mu, margin: 0, lineHeight: 1.6, textAlign: "center" }}>Chọn cố vấn bên dưới hoặc bấm Chat Mới từ sidebar</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", maxWidth: 520 }}>
+              {AGENTS.filter(a => a.tier === "S").map(a => (
+                <button key={a.id} onClick={() => newSession(a.id)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", background: `${a.col}0E`, border: `1px solid ${a.col}30`, borderRadius: 9, cursor: "pointer", transition: "all .15s" }}>
+                  <span style={{ fontSize: 20 }}>{a.icon}</span>
+                  <div style={{ textAlign: "left" }}>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "#fff", margin: "0 0 1px" }}>{a.n}</p>
+                    <p style={{ fontFamily: FM, fontSize: "8px", color: a.col, margin: 0 }}>{a.role}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setPickAgent(true)}
+              style={{ fontFamily: FM, fontSize: "10px", color: C.mu, background: "transparent", border: `1px solid ${C.bd}`, padding: "7px 20px", borderRadius: 6, cursor: "pointer", letterSpacing: "1px" }}>
+              XEM TẤT CẢ 42 AGENTS →
+            </button>
+          </div>
+        )}
+
+        {/* Active chat */}
+        {activeSess && (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", padding: "0 16px" }}>
+            <Bubbles msgs={activeMsgs} busy={aBusy} botRef={aRef} acol={activeAg.col} />
+            {activeMsgs.length === 0 && !aBusy && (
+              <div style={{ flexShrink: 0, padding: "10px 0 6px", textAlign: "center" }}>
+                <p style={{ fontSize: 12, color: C.mu, margin: "0 0 10px" }}>
+                  {activeAg.icon} Hội thoại với <strong style={{ color: activeAg.col }}>{activeAg.n}</strong>
+                </p>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+                  {["Lời khuyên cho tôi hôm nay","Review kế hoạch của tôi","Tư vấn tài chính","Điểm mù lớn nhất của tôi?"].map(q => (
+                    <button key={q} onClick={() => setAIn(q)}
+                      style={{ fontFamily: FM, fontSize: "10px", color: activeAg.col, background: `${activeAg.col}0E`, border: `1px solid ${activeAg.col}22`, padding: "6px 13px", borderRadius: 5, cursor: "pointer" }}>
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <InputBar val={aIn} set={setAIn} onSend={sendAgent} busy={aBusy} ph={`Nhắn ${activeAg.n}…`} col={activeAg.col} memHint={""}/>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
+export default function App() {
+  const [tab,       setTab]      = useState("council");
+  // Checkboxes
+  const [sDone,     setSDone]    = useState(() => new Set());
+  const [scDone,    setScDone]   = useState(() => new Set());
+  // Council
+  const [panel,     setPanel]    = useState(["carnegie","jobs","buffett","aristotle"]);
+  const [cMsgs,     setCMsgs]    = useState([]);
+  const [cIn,       setCIn]      = useState("");
+  const [cBusy,     setCBusy]    = useState(false);
+  const [showGrid,  setShowGrid] = useState(false);
+  const cRef = useRef(null);
+  // Chat sessions
+  const [sessions,     setSessions]     = useState([]);
+  const [activeSessId, setActiveSessId] = useState(null);
+  const [sessMessages, setSessMessages] = useState({});
+  const [aIn,          setAIn]          = useState("");
+  const [aBusy,        setABusy]        = useState(false);
+  const [sessReady,    setSessReady]    = useState(false);
+  const [sidebarOpen,  setSidebarOpen]  = useState(true);
+  const [searchQ,      setSearchQ]      = useState("");
+  const [pickAgent,    setPickAgent]    = useState(false);
+  const [editSessId,   setEditSessId]   = useState(null);
+  const [editTitle,    setEditTitle]    = useState("");
+  const [hoverSessId,  setHoverSessId]  = useState(null);
+  const aRef = useRef(null);
+  // Memory / RAG
+  const [mems,      setMems]     = useState([]);
+  const [memIn,     setMemIn]    = useState("");
+  const [memTag,    setMemTag]   = useState("general");
+  const [memReady,  setMemReady] = useState(false);
+  const [useRAG,    setUseRAG]   = useState(true);
+  const [memFilter, setMemFilter]= useState("all");
+  // Provider config — one active provider for new chats, per-provider model + key
+  const [activeProviderId, setActiveProviderId] = useState(DEFAULT_PROVIDER);
+  const [providerModels,   setProviderModels]   = useState(() =>
+    Object.fromEntries(PROVIDER_LIST.map(p => [p.id, p.defaultModel]))
+  );
+  const [apiKeys,          setApiKeys]          = useState({ claude:"", openai:"", gemini:"", kimi:"", qwen:"" });
+  const [showProvSettings, setShowProvSettings] = useState(false);
+  const [expandedProv,     setExpandedProv]     = useState(null); // which provider card is open
+  // Roadmap
+  const [selYear,   setSelYear]  = useState(1);
+  const [yrView,    setYrView]   = useState("owns");
+  const [openStep,  setOpenStep] = useState("s1");
+
+  // Derived chat
+  const activeSess = sessions.find(s => s.id === activeSessId) || null;
+  const activeMsgs = activeSessId ? (sessMessages[activeSessId] || []) : [];
+  const activeAg   = activeSess ? (AGENTS.find(a => a.id === activeSess.agId) || AGENTS[0]) : AGENTS[0];
+
+  // Auto-scroll
+  useEffect(() => { cRef.current?.scrollIntoView({ behavior: "smooth" }); }, [cMsgs, cBusy]);
+  useEffect(() => { aRef.current?.scrollIntoView({ behavior: "smooth" }); }, [activeMsgs, aBusy]);
+  // Load on mount
+  useEffect(() => { loadMems().then(m => { setMems(m); setMemReady(true); }); }, []);
+  useEffect(() => {
+    loadCfg().then(cfg => {
+      if (cfg.activeProviderId) setActiveProviderId(cfg.activeProviderId);
+      if (cfg.providerModels)   setProviderModels(prev => ({ ...prev, ...cfg.providerModels }));
+      if (cfg.apiKeys)          setApiKeys(prev => ({ ...prev, ...cfg.apiKeys }));
+    });
+  }, []);
+  useEffect(() => {
+    sessIndexLoad().then(async (idx) => {
+      setSessions(idx);
+      const recent = idx.slice(0, 10);
+      const cache = {};
+      for (const s of recent) cache[s.id] = await sessMsgsLoad(s.id);
+      setSessMessages(cache);
+      if (idx.length > 0) setActiveSessId(idx[0].id);
+      setSessReady(true);
+    });
+  }, []);
+
+  // Helpers
+  const togPanel = id => setPanel(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  const togS  = id => setSDone(p  => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const togSc = id => setScDone(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const sPct  = Math.round(sDone.size  / SETUP.length * 100);
+  const scPct = Math.round(scDone.size / SCHED.length * 100);
+
+  // ── AI CALL — dual provider ───────────────────────────────────────────────
+  // callAI — routes to correct provider endpoint
+  // providerId: "claude"|"openai"|"gemini"|"kimi"|"qwen"
+  // modelId: specific model string (optional, falls back to providerModels[providerId])
+  const callAI = async (sys, hist, txt, providerId = activeProviderId, modelId = null) => {
+    let finalSys = sys;
+    if (useRAG && mems.length) {
+      const rel = searchMems(txt, mems);
+      if (rel.length) finalSys += memCtx(rel);
+    }
+    const msgs = [...hist.slice(-10), { role: "user", content: txt }];
+    const prov  = PROVIDERS[providerId] || PROVIDERS.claude;
+    const model = modelId || providerModels[providerId] || prov.defaultModel;
+
+    // ── Anthropic native API
+    if (prov.apiType === "anthropic") {
+      const headers = { "Content-Type": "application/json" };
+      if (apiKeys.claude) headers["x-api-key"] = apiKeys.claude;
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ model, max_tokens: 1400, system: finalSys, messages: msgs }),
+      });
+      const d = await r.json();
+      if (d?.error) throw new Error(d.error.message || JSON.stringify(d.error));
+      return d?.content?.[0]?.text || "Không có response.";
+    }
+
+    // ── OpenAI-compatible REST (OpenAI, Gemini, Kimi, Qwen)
+    const key = apiKeys[prov.id];
+    if (!key) throw new Error(`⚠️ Chưa có API Key cho ${prov.name}. Vào ⚙️ Setup → Provider Settings để nhập.`);
+    const r = await fetch(prov.baseUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+      body: JSON.stringify({ model, messages: [{ role: "system", content: finalSys }, ...msgs], max_tokens: 1400 }),
+    });
+    const d = await r.json();
+    if (d?.error) throw new Error(d.error?.message || JSON.stringify(d.error));
+    return d?.choices?.[0]?.message?.content || "Không có response.";
+  };
+
+  // ── Council (always heavy) ────────────────────────────────────────────────
+  const mkCouncilSys = () => {
+    const names = panel.map(id => { const a = AGENTS.find(x => x.id === id); return `${a.icon} ${a.n}`; }).join(", ");
+    const lines = panel.map(id => { const a = AGENTS.find(x => x.id === id); return `${a.icon} ${a.n} (${a.role}) —`; }).join("\n");
+    return `Bạn là hội đồng cố vấn gồm: ${names}.\n\nVới mỗi câu hỏi, trình bày đúng format:\n${lines}\n\nKẾT LUẬN — [2-3 câu hành động cụ thể nhất]\n\nQUY TẮC: Không dùng ** hay ## hay bất kỳ markdown. Mỗi cố vấn nói 2-4 câu. Tiếng Việt.`;
+  };
+  const sendCouncil = async () => {
+    const txt = cIn.trim();
+    if (!txt || cBusy || !panel.length) return;
+    setCIn(""); setCBusy(true);
+    setCMsgs(p => [...p, { role: "user", content: txt }]);
+    try {
+      const hist = cMsgs.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+      const reply = await callAI(mkCouncilSys(), hist, txt, "claude"); // Council always Claude
+      setCMsgs(p => [...p, { role: "assistant", content: reply, label: "🏛️ Hội Đồng", aid: "council" }]);
+      if (useRAG && txt.length > 15) {
+        const newMem = { id: Date.now().toString(), text: `[Council] ${txt.slice(0, 120)}`, tag: "council", ts: Date.now(), src: "auto" };
+        setMems(prev => { const u = [...prev, newMem]; saveMems(u); return u; });
+      }
+    } catch (e) {
+      setCMsgs(p => [...p, { role: "assistant", content: `⚠️ ${e.message || "Lỗi kết nối."}`, label: "System", aid: "" }]);
+    }
+    setCBusy(false);
+  };
+
+  // ── Session management ────────────────────────────────────────────────────
+  const sessUpdateCache = (id, newMsgs) => {
+    setSessMessages(prev => ({ ...prev, [id]: newMsgs }));
+    sessMsgsSave(id, newMsgs);
+  };
+  const sessUpdateIndex = (id, patch) => {
+    setSessions(prev => {
+      const updated = prev.map(s => s.id === id ? { ...s, ...patch } : s).sort((a,b) => b.updatedAt - a.updatedAt);
+      sessIndexSave(updated); return updated;
+    });
+  };
+  const newSession = (agId, forceProviderId = null) => {
+    const a   = AGENTS.find(x => x.id === agId) || AGENTS[0];
+    const pid = forceProviderId || activeProviderId;
+    const s = { ...makeSession(agId, a.n), provider: pid, model: providerModels[pid] || PROVIDERS[pid]?.defaultModel };
+    setSessions(prev => { const u = [s, ...prev]; sessIndexSave(u); return u; });
+    setSessMessages(prev => ({ ...prev, [s.id]: [] }));
+    setActiveSessId(s.id);
+    setAIn("");
+  };
+  const switchSession = async (id) => {
+    setActiveSessId(id); setAIn("");
+    if (!sessMessages[id]) {
+      const msgs = await sessMsgsLoad(id);
+      setSessMessages(prev => ({ ...prev, [id]: msgs }));
+    }
+  };
+  const deleteSession = async (id) => {
+    setSessions(prev => { const u = prev.filter(s => s.id !== id); sessIndexSave(u); return u; });
+    setSessMessages(prev => { const n = { ...prev }; delete n[id]; return n; });
+    try { await window.storage.delete(sessMsgsKey(id)); } catch {}
+    setActiveSessId(prev => prev === id ? (sessions.find(s => s.id !== id)?.id || null) : prev);
+  };
+  const renameSession = (id, title) => sessUpdateIndex(id, { title });
+
+  // ── sendAgent — uses the provider saved when session was created
+  const sendAgent = async () => {
+    const txt = aIn.trim();
+    if (!txt || aBusy || !activeSessId) return;
+    const sid  = activeSessId;
+    const sess = sessions.find(s => s.id === sid);
+    const pid  = sess?.provider || activeProviderId;
+    const mid  = sess?.model    || providerModels[pid] || PROVIDERS[pid]?.defaultModel;
+    const prov = PROVIDERS[pid] || PROVIDERS.claude;
+    const curMsgs  = sessMessages[sid] || [];
+    const nextMsgs = [...curMsgs, { role: "user", content: txt }];
+    setAIn(""); setABusy(true);
+    sessUpdateCache(sid, nextMsgs);
+    if (curMsgs.length === 0)
+      sessUpdateIndex(sid, { title: txt.slice(0,48) + (txt.length>48?"…":""), updatedAt: Date.now(), msgCount: 1 });
+    try {
+      const hist = curMsgs.map(m => ({ role: m.role==="user"?"user":"assistant", content: m.content }));
+      const reply = await callAI(activeAg.prompt, hist, txt, pid, mid);
+      // Find label for this model
+      const modelLabel = prov.models.find(m => m.id === mid)?.label || mid;
+      const botMsg = {
+        role: "assistant", content: reply,
+        label: `${activeAg.icon} ${activeAg.n}`,
+        aid: activeAg.id,
+        providerIcon: prov.icon,
+        providerName: prov.name,
+        modelLabel,
+        providerColor: prov.color,
+      };
+      const finalMsgs = [...nextMsgs, botMsg];
+      sessUpdateCache(sid, finalMsgs);
+      sessUpdateIndex(sid, { updatedAt: Date.now(), msgCount: finalMsgs.length });
+    } catch (e) {
+      const errMsgs = [...nextMsgs, { role: "assistant", content: `⚠️ ${e.message||"Lỗi kết nối."}`, label:"System", aid:"" }];
+      sessUpdateCache(sid, errMsgs);
+    }
+    setABusy(false);
+  };
+
+  // ── Memory helpers ────────────────────────────────────────────────────────
+  const addMem = () => {
+    if (!memIn.trim()) return;
+    const m = { id: Date.now().toString(), text: memIn.trim(), tag: memTag, ts: Date.now(), src: "manual" };
+    setMems(prev => { const u = [...prev, m]; saveMems(u); return u; });
+    setMemIn("");
+  };
+  const delMem = (id) => { setMems(prev => { const u = prev.filter(m => m.id !== id); saveMems(u); return u; }); };
+
+  // ── Schedule helpers ──────────────────────────────────────────────────────
+  const nowMin = () => { const n = new Date(); return n.getHours()*60+n.getMinutes(); };
+  const parseMin = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+  const isCurrentBlock = (blk, i) => {
+    const start = parseMin(blk.t);
+    const end = i < SCHED.length-1 ? parseMin(SCHED[i+1].t) : 24*60;
+    const n = nowMin(); return n >= start && n < end;
+  };
+
+  // ── Save provider config on change ───────────────────────────────────────
+  useEffect(() => {
+    saveCfg({ activeProviderId, providerModels, apiKeys });
+  }, [activeProviderId, providerModels, apiKeys]);
+
+  const dayStr  = ["CN","T2","T3","T4","T5","T6","T7"][new Date().getDay()];
+  const dateStr = new Date().toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric"});
+
+  const TABS = [
+    { id:"council", label:"🏛️ Council",  badge:`${panel.length}/42`,  color:C.gold },
+    { id:"chat",    label:"💬 Chat",      badge:activeAg.n,            color:activeAg.col },
+    { id:"memory",  label:"🧠 Memory",    badge:`${mems.length}`,      color:C.pur  },
+    { id:"daily",   label:"📅 Lịch Ngày", badge:`${scPct}%`,           color:C.grn  },
+    { id:"setup",   label:"⚙️ Setup",     badge:`${sPct}%`,            color:C.blu  },
+    { id:"roadmap", label:"🗺 5 Năm",     badge:"2026–2030",           color:C.org  },
+  ];
+
+  const yr = YEARS.find(y=>y.y===selYear);
+
+  return (
+    <div style={{fontFamily:F,minHeight:"100vh",background:C.bg,color:C.txt,display:"flex",flexDirection:"column"}}>
+      <link rel="stylesheet" href={GF}/>
+      <style>{`
+        @keyframes dot{0%,100%{opacity:.25;transform:scale(.7)}50%{opacity:1;transform:scale(1)}}
+        ::-webkit-scrollbar{width:3px;height:3px}
+        ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.09);border-radius:2px}
+        textarea{font-family:'Syne',system-ui,sans-serif!important}
+        details summary{list-style:none}
+        details summary::-webkit-details-marker{display:none}
+        input::placeholder,textarea::placeholder{color:rgba(232,227,216,0.3)}
+      `}</style>
+
+      {/* HEADER */}
+      <div style={{borderBottom:`1px solid ${C.bd}`,flexShrink:0,background:`${C.bg}EC`}}>
+        <div style={{maxWidth:960,margin:"0 auto",padding:"12px 20px 0"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
+            <div>
+              <p style={{fontFamily:FM,fontSize:"8px",letterSpacing:"3px",color:`${C.gold}50`,margin:"0 0 3px",textTransform:"uppercase"}}>Empire Council · Mission Control</p>
+              <p style={{fontSize:17,fontWeight:800,color:"#fff",margin:0,letterSpacing:"-0.5px"}}>Mission Control</p>
+            </div>
+            <div style={{display:"flex",gap:16,alignItems:"center"}}>
+              {[[panel.length+"/42","Council",C.gold],[mems.length+" items","Memory",C.pur],[sPct+"%","Setup",C.blu],[dateStr,dayStr,C.mu]].map(([v,l,col])=>(
+                <div key={l} style={{textAlign:"center"}}>
+                  <p style={{fontFamily:FM,fontSize:"7px",color:C.fa,margin:"0 0 2px",textTransform:"uppercase",letterSpacing:"1px"}}>{l}</p>
+                  <p style={{fontFamily:FM,fontSize:11,color:col,margin:0,fontWeight:600}}>{v}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{display:"flex",gap:0,overflowX:"auto"}}>
+            {TABS.map(t=>{const a=tab===t.id;return(
+              <button key={t.id} onClick={()=>setTab(t.id)}
+                style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",flexShrink:0,background:a?`${t.color}0C`:"transparent",border:"none",borderBottom:`2px solid ${a?t.color:"transparent"}`,color:a?t.color:C.mu,cursor:"pointer",transition:"all .15s"}}>
+                <span style={{fontFamily:F,fontSize:12,fontWeight:a?700:400}}>{t.label}</span>
+                <span style={{fontFamily:FM,fontSize:"8px",padding:"1px 7px",borderRadius:10,background:a?`${t.color}18`:"rgba(255,255,255,0.04)",border:`1px solid ${a?t.color+"40":C.bd}`,color:a?t.color:C.fa}}>{t.badge}</span>
+              </button>
+            );})}
+          </div>
+        </div>
+      </div>
+
+      {/* BODY */}
+      <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+
+        {/* PROVIDER BANNER — show when active provider has no key */}
+        {tab==="chat" && activeProviderId !== "claude" && !apiKeys[activeProviderId] && (
+          <div style={{background:`${PROVIDERS[activeProviderId]?.color || C.org}12`,borderBottom:`1px solid ${PROVIDERS[activeProviderId]?.color || C.org}28`,padding:"8px 20px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+            <span style={{fontSize:14}}>⚠️</span>
+            <p style={{fontSize:12,color:PROVIDERS[activeProviderId]?.color||C.org,margin:0,flex:1}}>
+              Chưa có API Key cho <strong>{PROVIDERS[activeProviderId]?.name}</strong>. Vào <strong>⚙️ Setup → Provider Settings</strong> để nhập.
+            </p>
+            <button onClick={()=>{setTab("setup");setShowProvSettings(true);}}
+              style={{fontFamily:FM,fontSize:"9px",color:PROVIDERS[activeProviderId]?.color||C.org,background:`${PROVIDERS[activeProviderId]?.color||C.org}14`,border:`1px solid ${PROVIDERS[activeProviderId]?.color||C.org}30`,padding:"4px 12px",borderRadius:4,cursor:"pointer",flexShrink:0,letterSpacing:"1px"}}>
+              CẤU HÌNH
+            </button>
+          </div>
+        )}
+
+        {/* ════ COUNCIL ════ */}
+        {tab==="council"&&(
+          <div style={{flex:1,display:"flex",flexDirection:"column",maxWidth:960,width:"100%",margin:"0 auto",padding:"0 20px",boxSizing:"border-box",overflow:"hidden"}}>
+            <div style={{flexShrink:0,padding:"12px 0 10px"}}>
+              <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:10,flexWrap:"wrap"}}>
+                <button onClick={()=>setUseRAG(p=>!p)} style={{display:"flex",alignItems:"center",gap:5,padding:"4px 12px",background:useRAG?C.purD:"transparent",border:`1px solid ${useRAG?C.pur:C.bd}`,borderRadius:4,cursor:"pointer"}}>
+                  <span style={{fontFamily:FM,fontSize:"9px",color:useRAG?C.pur:C.mu,letterSpacing:"1px"}}>🧠 RAG {useRAG?"ON":"OFF"}</span>
+                </button>
+                <button onClick={()=>setPanel(AGENTS.filter(a=>a.tier==="S").map(a=>a.id))} style={{fontFamily:FM,fontSize:"9px",color:C.gold,background:C.gD,border:`1px solid ${C.gold}28`,padding:"4px 11px",borderRadius:4,cursor:"pointer",letterSpacing:"1px"}}>S-TIER</button>
+                <button onClick={()=>setPanel(AGENTS.slice(0,8).map(a=>a.id))} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer"}}>TOP 8</button>
+                <span style={{fontFamily:FM,fontSize:"8px",color:PROVIDERS.claude.color,background:`${PROVIDERS.claude.color}10`,border:`1px solid ${PROVIDERS.claude.color}25`,padding:"3px 10px",borderRadius:3,marginLeft:"auto"}}>
+                  {PROVIDERS.claude.icon} Council · {providerModels.claude || PROVIDERS.claude.defaultModel}
+                </span>
+                <button onClick={()=>setShowGrid(p=>!p)} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer"}}>{showGrid?"▲ Ẩn":"▼ 42 Agents"}</button>
+                {cMsgs.length>0&&<button onClick={()=>setCMsgs([])} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer"}}>XÓA</button>}
+              </div>
+              {showGrid&&(
+                <div style={{maxHeight:240,overflowY:"auto",marginBottom:10}}>
+                  {["S","A","B","C"].map(tier=>(
+                    <div key={tier} style={{marginBottom:10}}>
+                      <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 5px",letterSpacing:"2px"}}>{tier}-TIER</p>
+                      <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                        {AGENTS.filter(a=>a.tier===tier).map(a=>{const sel=panel.includes(a.id);return(
+                          <button key={a.id} onClick={()=>togPanel(a.id)}
+                            style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:sel?`${a.col}14`:C.s1,border:`1px solid ${sel?a.col:C.bd}`,borderRadius:5,cursor:"pointer",transition:"all .12s"}}>
+                            <span style={{fontSize:12}}>{a.icon}</span>
+                            <span style={{fontFamily:FM,fontSize:"9px",color:sel?a.col:C.mu,textTransform:"uppercase"}}>{a.n}</span>
+                            {sel&&<span style={{color:a.col,fontSize:8}}>✓</span>}
+                          </button>
+                        );})}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+                <span style={{fontFamily:FM,fontSize:"8px",color:C.fa}}>PANEL:</span>
+                {panel.slice(0,10).map(id=>{const a=AGENTS.find(x=>x.id===id);if(!a)return null;return(
+                  <span key={id} onClick={()=>togPanel(id)} style={{fontFamily:FM,fontSize:"9px",color:a.col,background:`${a.col}12`,border:`1px solid ${a.col}22`,padding:"2px 8px",borderRadius:3,cursor:"pointer"}}>{a.icon} {a.n} ×</span>
+                );})}
+                {panel.length>10&&<span style={{fontFamily:FM,fontSize:"9px",color:C.mu}}>+{panel.length-10}</span>}
+                {panel.length>8&&<span style={{fontFamily:FM,fontSize:"8px",color:C.org,background:C.orgD,border:`1px solid ${C.org}25`,padding:"2px 8px",borderRadius:3,marginLeft:"auto"}}>⚠ {panel.length} agents → prompt lớn → tốn hơn</span>}
+              </div>
+            </div>
+            <Bubbles msgs={cMsgs} busy={cBusy} botRef={cRef} acol={C.gold}/>
+            {cMsgs.length===0&&!cBusy&&(
+              <div style={{flexShrink:0,padding:"12px 0",textAlign:"center"}}>
+                <p style={{fontSize:12,color:C.mu,margin:"0 0 10px"}}>Hội đồng {panel.length} cố vấn sẵn sàng.</p>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}}>
+                  {["Tôi nên ưu tiên gì hôm nay?","Review kế hoạch kinh doanh","Tôi đang mắc sai lầm nào?","Làm sao scale nhanh hơn?"].map(q=>(
+                    <button key={q} onClick={()=>setCIn(q)} style={{fontFamily:FM,fontSize:"10px",color:C.gold,background:C.gD,border:`1px solid ${C.gold}22`,padding:"5px 12px",borderRadius:4,cursor:"pointer"}}>{q}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <InputBar val={cIn} set={setCIn} onSend={sendCouncil} busy={cBusy} ph={panel.length===0?"Chọn ít nhất 1 agent...":"Hỏi Hội Đồng... (Enter gửi)"} col={C.gold} memHint={useRAG&&mems.length>0?mems.length+" memories":""}/>
+          </div>
+        )}
+
+        {/* ════ CHAT ════ */}
+        {tab==="chat"&&(
+          <ChatTab
+            sessions={sessions} activeSessId={activeSessId} sessMessages={sessMessages}
+            sessReady={sessReady} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}
+            searchQ={searchQ} setSearchQ={setSearchQ}
+            pickAgent={pickAgent} setPickAgent={setPickAgent}
+            editSessId={editSessId} setEditSessId={setEditSessId}
+            editTitle={editTitle} setEditTitle={setEditTitle}
+            hoverSessId={hoverSessId} setHoverSessId={setHoverSessId}
+            activeSess={activeSess} activeMsgs={activeMsgs} activeAg={activeAg}
+            newSession={newSession} switchSession={switchSession}
+            deleteSession={deleteSession} renameSession={renameSession}
+            sessUpdateCache={sessUpdateCache} sessUpdateIndex={sessUpdateIndex}
+            aBusy={aBusy} aRef={aRef} aIn={aIn} setAIn={setAIn}
+            sendAgent={sendAgent} useRAG={useRAG} mems={mems}
+          />
+        )}
+
+        {/* ════ MEMORY ════ */}
+        {tab==="memory"&&(
+          <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:"14px 20px 40px",boxSizing:"border-box"}}>
+            <div style={{background:C.purD,border:`1px solid ${C.pur}20`,borderRadius:10,padding:"14px 18px",marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+                <div>
+                  <p style={{fontFamily:FM,fontSize:"8px",color:C.pur,letterSpacing:"2px",margin:"0 0 4px",textTransform:"uppercase"}}>🧠 Neural Memory + RAG System</p>
+                  <p style={{fontSize:12,color:C.txt,margin:"0 0 8px",lineHeight:1.65,maxWidth:480}}>Memories được inject vào context trước mỗi query. Hội Đồng sẽ nhớ và tham chiếu lịch sử của bạn.</p>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <span style={{fontFamily:FM,fontSize:"10px",color:C.pur}}>{mems.length} memories</span>
+                    <button onClick={()=>setUseRAG(p=>!p)} style={{fontFamily:FM,fontSize:"9px",color:useRAG?C.pur:C.mu,background:useRAG?C.purD:"transparent",border:`1px solid ${useRAG?C.pur:C.bd}`,padding:"3px 10px",borderRadius:3,cursor:"pointer",letterSpacing:"1px"}}>RAG {useRAG?"ACTIVE ✓":"PAUSED"}</button>
+                  </div>
+                </div>
+                <div style={{background:"rgba(0,0,0,0.3)",border:`1px solid ${C.bd}`,borderRadius:7,padding:"10px 14px",fontSize:11,color:C.mu,lineHeight:1.7,maxWidth:240}}>
+                  <p style={{fontFamily:FM,fontSize:"8px",color:C.pur,margin:"0 0 5px",letterSpacing:"1px",textTransform:"uppercase"}}>Cách hoạt động</p>
+                  <p style={{margin:"0 0 2px"}}>1. Thêm memories về bạn và mục tiêu</p>
+                  <p style={{margin:"0 0 2px"}}>2. Trước mỗi query: tìm memories liên quan</p>
+                  <p style={{margin:"0 0 2px"}}>3. Inject vào system prompt như context</p>
+                  <p style={{margin:0}}>4. Agent trả lời với hiểu biết đầy đủ về bạn</p>
+                </div>
+              </div>
+            </div>
+            <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+              <p style={{fontFamily:FM,fontSize:"9px",color:C.pur,margin:"0 0 10px",letterSpacing:"1.5px",textTransform:"uppercase"}}>➕ Thêm Memory</p>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
+                {["general","finance","strategy","tech","health","language","empire"].map(tag=>(
+                  <button key={tag} onClick={()=>setMemTag(tag)} style={{fontFamily:FM,fontSize:"9px",color:memTag===tag?C.pur:C.mu,background:memTag===tag?C.purD:"transparent",border:`1px solid ${memTag===tag?C.pur:C.bd}`,padding:"3px 10px",borderRadius:3,cursor:"pointer"}}>{tag}</button>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                <textarea value={memIn} onChange={e=>setMemIn(e.target.value)}
+                  onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();addMem();}}}
+                  placeholder='Nhập fact/insight quan trọng... (ví dụ: "Tôi đang xây startup AI coaching target SME Việt Nam")' rows={2}
+                  style={{flex:1,background:"rgba(0,0,0,0.3)",border:`1px solid ${C.pur}28`,borderRadius:7,padding:"9px 12px",color:C.txt,fontFamily:F,fontSize:12,resize:"none",lineHeight:1.6,outline:"none"}}
+                />
+                <button onClick={addMem} disabled={!memIn.trim()} style={{padding:"9px 18px",background:memIn.trim()?C.purD:"rgba(255,255,255,0.03)",border:`1px solid ${memIn.trim()?C.pur:C.bd}`,borderRadius:7,color:memIn.trim()?C.pur:C.mu,fontFamily:FM,fontSize:"10px",cursor:memIn.trim()?"pointer":"not-allowed",letterSpacing:"1px",textTransform:"uppercase",flexShrink:0}}>LƯU</button>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:5,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
+              <span style={{fontFamily:FM,fontSize:"8px",color:C.fa,letterSpacing:"1px"}}>LỌC:</span>
+              {["all","general","finance","strategy","tech","health","language","empire","council","auto"].map(f=>(
+                <button key={f} onClick={()=>setMemFilter(f)} style={{fontFamily:FM,fontSize:"9px",color:memFilter===f?C.pur:C.mu,background:memFilter===f?C.purD:"transparent",border:`1px solid ${memFilter===f?C.pur:C.bd}`,padding:"2px 9px",borderRadius:3,cursor:"pointer"}}>{f}</button>
+              ))}
+              {mems.length>0&&<button onClick={()=>{if(window.confirm("Xóa tất cả memories?")){{setMems([]);saveMems([]);}}}} style={{fontFamily:FM,fontSize:"9px",color:C.red,background:C.redD,border:`1px solid ${C.red}22`,padding:"2px 10px",borderRadius:3,cursor:"pointer",marginLeft:"auto"}}>XÓA HẾT</button>}
+            </div>
+            {!memReady&&<p style={{fontSize:12,color:C.mu,textAlign:"center",padding:"20px"}}>Đang tải…</p>}
+            {memReady&&mems.length===0&&(
+              <div style={{textAlign:"center",padding:"30px 16px",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10}}>
+                <span style={{fontSize:32}}>🧠</span>
+                <p style={{fontSize:12,color:C.mu,margin:"10px 0 6px"}}>Chưa có memories. Hãy thêm những điều quan trọng về bạn.</p>
+                <p style={{fontFamily:FM,fontSize:"10px",color:C.pur,margin:0}}>Gợi ý: tên, mục tiêu, business model, điểm mạnh/yếu…</p>
+              </div>
+            )}
+            <div style={{display:"flex",flexDirection:"column",gap:5}}>
+              {mems.filter(m=>memFilter==="all"||m.tag===memFilter||m.src===memFilter).sort((a,b)=>b.ts-a.ts).map(m=>(
+                <div key={m.id} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"11px 14px",background:C.s1,border:`1px solid ${m.src==="auto"?C.pur+"20":C.bd}`,borderRadius:8}}>
+                  <span style={{fontFamily:FM,fontSize:"8px",color:m.src==="auto"?C.pur:C.gold,background:m.src==="auto"?C.purD:C.gD,border:`1px solid ${m.src==="auto"?C.pur:C.gold}22`,padding:"2px 7px",borderRadius:3,flexShrink:0,textTransform:"uppercase",marginTop:2}}>{m.tag}</span>
+                  <p style={{flex:1,fontSize:12,color:C.txt,margin:0,lineHeight:1.65}}>{m.text}</p>
+                  <div style={{flexShrink:0,textAlign:"right",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
+                    <p style={{fontFamily:FM,fontSize:"7px",color:C.fa,margin:0}}>{new Date(m.ts).toLocaleDateString("vi-VN")}</p>
+                    {m.src==="auto"&&<span style={{fontFamily:FM,fontSize:"7px",color:`${C.pur}60`}}>auto</span>}
+                    <button onClick={()=>delMem(m.id)} style={{fontFamily:FM,fontSize:"9px",color:C.red,background:"transparent",border:`1px solid ${C.red}20`,padding:"2px 8px",borderRadius:3,cursor:"pointer"}}>×</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ════ DAILY ════ */}
+        {tab==="daily"&&(
+          <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:"14px 20px 40px",boxSizing:"border-box"}}>
+            <div style={{background:C.grnD,border:`1px solid ${C.grn}20`,borderRadius:10,padding:"13px 18px",marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <div>
+                  <p style={{fontFamily:FM,fontSize:"8px",color:C.grn,letterSpacing:"2px",margin:"0 0 2px",textTransform:"uppercase"}}>Lịch ngày · {dayStr} {dateStr}</p>
+                  <p style={{fontSize:12,color:C.txt,margin:0}}>{scDone.size===SCHED.length?"🔥 Ngày hoàn hảo!":scDone.size===0?"Làm tuần tự từ block đầu tiên.":`${scDone.size}/${SCHED.length} blocks xong`}</p>
+                </div>
+                <p style={{fontFamily:FM,fontSize:24,color:C.grn,margin:0,fontWeight:800}}>{scPct}%</p>
+              </div>
+              <div style={{height:4,background:"rgba(255,255,255,0.07)",borderRadius:2}}>
+                <div style={{width:`${scPct}%`,height:"100%",borderRadius:2,background:`linear-gradient(90deg,${C.grn},${C.gold})`,transition:"width .4s"}}/>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))",gap:6,marginBottom:14}}>
+              {[["🏃","Thể dục","1 giờ","#34D399"],["🇨🇳","Tiếng Trung","2 giờ","#F472B6"],["🇬🇧","Tiếng Anh","1.5 giờ","#22D3EE"],["📖","Đọc sách","30 phút","#60A5FA"],["⚡","Empire","3.5 giờ","#34D399"],["☕","Nghỉ ngơi","3.5 giờ","rgba(255,255,255,0.35)"]].map(([e,l,t,col])=>(
+                <div key={l} style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:7,padding:"8px 10px",textAlign:"center"}}>
+                  <span style={{fontSize:15}}>{e}</span>
+                  <p style={{fontFamily:FM,fontSize:"11px",color:col,margin:"4px 0 1px",fontWeight:700}}>{t}</p>
+                  <p style={{fontSize:10,color:C.mu,margin:0}}>{l}</p>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              {SCHED.map((blk,i)=>{
+                const done=scDone.has(blk.id),isRest=["rest","free","dinner","sleep"].includes(blk.c),isCurr=isCurrentBlock(blk,i),col=blk.col;
+                return(
+                  <div key={blk.id} onClick={()=>togSc(blk.id)}
+                    style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 13px",background:isCurr?`${col}12`:done?`${C.grn}05`:isRest?"rgba(255,255,255,0.01)":C.s1,border:`1px solid ${isCurr?col+"50":done?C.grn+"28":isRest?C.bd:col+"18"}`,borderRadius:8,cursor:"pointer",transition:"all .15s",opacity:isRest&&!isCurr?0.7:1,boxShadow:isCurr?`0 0 12px ${col}15`:"none"}}>
+                    <div style={{flexShrink:0,textAlign:"right",minWidth:36}}>
+                      <p style={{fontFamily:FM,fontSize:"10px",color:done?C.grn:isCurr?col:isRest?C.mu:col,margin:0,fontWeight:600,lineHeight:1.2}}>{blk.t}</p>
+                      {blk.d>0&&<p style={{fontFamily:FM,fontSize:"7px",color:C.fa,margin:"1px 0 0"}}>{blk.d}p</p>}
+                    </div>
+                    <div style={{width:3,borderRadius:2,flexShrink:0,alignSelf:"stretch",minHeight:18,background:done?C.grn:isCurr?col:isRest?"rgba(255,255,255,0.08)":col}}/>
+                    <div style={{width:19,height:19,borderRadius:4,flexShrink:0,marginTop:1,background:done?C.grn:"transparent",border:`2px solid ${done?C.grn:isCurr?col:C.bdH}`,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .12s",boxShadow:done?`0 0 6px ${C.grn}40`:"none"}}>
+                      {done&&<span style={{color:"#000",fontSize:10,fontWeight:800}}>✓</span>}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,flexWrap:"wrap"}}>
+                        <span style={{fontSize:12}}>{blk.e}</span>
+                        <p style={{fontSize:12,fontWeight:isRest?400:700,margin:0,lineHeight:1.3,color:done?"rgba(232,227,216,0.3)":isCurr?"#fff":isRest?C.mu:"#fff",textDecoration:done?"line-through":"none"}}>{blk.n}</p>
+                        {isCurr&&<span style={{fontFamily:FM,fontSize:"7px",color:col,background:`${col}18`,border:`1px solid ${col}30`,padding:"1px 6px",borderRadius:3}}>NOW</span>}
+                        {!isRest&&!isCurr&&<span style={{fontFamily:FM,fontSize:"7px",color:col,background:`${col}0F`,border:`1px solid ${col}18`,padding:"1px 6px",borderRadius:3,textTransform:"uppercase"}}>{blk.c}</span>}
+                      </div>
+                      <p style={{fontSize:11,color:done?C.fa:C.mu,margin:0,lineHeight:1.5}}>{blk.note}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ════ SETUP ════ */}
+        {tab==="setup"&&(
+          <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:"14px 20px 40px",boxSizing:"border-box"}}>
+
+            {/* Provider Settings card */}
+            <div style={{background:"rgba(255,255,255,0.02)",border:`1px solid ${C.bd}`,borderRadius:10,padding:"14px 18px",marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:showProvSettings?14:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:20}}>🔌</span>
+                  <div>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:"0 0 3px",letterSpacing:"2px",textTransform:"uppercase"}}>AI Provider Settings</p>
+                    <div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}>
+                      {PROVIDER_LIST.map(p=>{
+                        const isActive = activeProviderId===p.id;
+                        const hasKey   = p.id==="claude" || !!apiKeys[p.id];
+                        return(
+                          <span key={p.id} style={{fontFamily:FM,fontSize:"9px",color:isActive?p.color:C.fa,background:isActive?`${p.color}14`:"transparent",border:`1px solid ${isActive?p.color:C.bd}`,padding:"2px 8px",borderRadius:10,cursor:"pointer"}} onClick={()=>setActiveProviderId(p.id)}>
+                            {p.icon} {p.name.split(" ")[1] || p.name} {hasKey?"✓":""}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+                <button onClick={()=>setShowProvSettings(p=>!p)} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"rgba(255,255,255,0.04)",border:`1px solid ${C.bd}`,padding:"5px 12px",borderRadius:5,cursor:"pointer",letterSpacing:"1px",flexShrink:0}}>{showProvSettings?"ẨN ▲":"CẤU HÌNH ▼"}</button>
+              </div>
+
+              {showProvSettings && (
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {PROVIDER_LIST.map(p => {
+                    const isExpanded = expandedProv===p.id;
+                    const curModel   = providerModels[p.id] || p.defaultModel;
+                    const hasKey     = p.id==="claude" || !!apiKeys[p.id];
+                    const isActive   = activeProviderId===p.id;
+                    return (
+                      <div key={p.id} style={{background:"rgba(0,0,0,0.25)",border:`1px solid ${isActive?p.color+"40":C.bd}`,borderRadius:8,overflow:"hidden"}}>
+                        {/* Provider row header */}
+                        <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer"}} onClick={()=>setExpandedProv(isExpanded?null:p.id)}>
+                          <span style={{fontSize:18,flexShrink:0}}>{p.icon}</span>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+                              <p style={{fontFamily:FM,fontSize:"11px",fontWeight:700,color:isActive?p.color:"#fff",margin:0}}>{p.name}</p>
+                              {isActive && <span style={{fontFamily:FM,fontSize:"8px",color:p.color,background:`${p.color}18`,border:`1px solid ${p.color}30`,padding:"1px 7px",borderRadius:10}}>Chat 1:1 ✓</span>}
+                              {p.id==="claude" && <span style={{fontFamily:FM,fontSize:"8px",color:"#A78BFA",background:"rgba(167,139,250,0.1)",border:"1px solid rgba(167,139,250,0.25)",padding:"1px 7px",borderRadius:10}}>Council ✓</span>}
+                              <span style={{fontFamily:FM,fontSize:"8px",color:hasKey?C.grn:C.org,background:hasKey?`${C.grn}10`:`${C.org}10`,border:`1px solid ${hasKey?C.grn:C.org}25`,padding:"1px 7px",borderRadius:10}}>{hasKey?"Key OK ✓":"Chưa có key"}</span>
+                            </div>
+                            <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:"2px 0 0"}}>Model hiện tại: <span style={{color:p.color}}>{p.models.find(m=>m.id===curModel)?.label || curModel}</span></p>
+                          </div>
+                          <div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
+                            <button onClick={e=>{e.stopPropagation();setActiveProviderId(p.id);}}
+                              style={{fontFamily:FM,fontSize:"9px",color:isActive?p.color:C.mu,background:isActive?`${p.color}14`:"transparent",border:`1px solid ${isActive?p.color:C.bd}`,padding:"4px 10px",borderRadius:4,cursor:"pointer"}}>
+                              {isActive?"Đang dùng ✓":"Dùng cho Chat"}
+                            </button>
+                            <span style={{color:C.fa,fontSize:11}}>{isExpanded?"▲":"▼"}</span>
+                          </div>
+                        </div>
+
+                        {/* Expanded detail */}
+                        {isExpanded && (
+                          <div style={{padding:"0 14px 14px",borderTop:`1px solid ${C.bd}`}}>
+                            {/* API Key */}
+                            <div style={{marginTop:10}}>
+                              <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 5px",letterSpacing:"1px",textTransform:"uppercase"}}>
+                                API KEY {p.id==="claude"?"(tuỳ chọn — built-in hoạt động)":"(bắt buộc)"}
+                              </p>
+                              <input type="password"
+                                value={apiKeys[p.id] || ""}
+                                onChange={e=>setApiKeys(prev=>({...prev,[p.id]:e.target.value}))}
+                                placeholder={p.keyPlaceholder}
+                                style={{width:"100%",boxSizing:"border-box",background:"rgba(0,0,0,0.4)",border:`1px solid ${p.color}30`,borderRadius:5,padding:"8px 11px",color:C.txt,fontFamily:FM,fontSize:"10px",outline:"none"}}
+                              />
+                              <p style={{fontFamily:FM,fontSize:"8px",color:`${p.color}70`,margin:"5px 0 0"}}>📎 {p.keyHint}</p>
+                            </div>
+                            {/* Model picker */}
+                            <div style={{marginTop:10}}>
+                              <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 5px",letterSpacing:"1px",textTransform:"uppercase"}}>MODEL</p>
+                              <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                                {p.models.map(m=>{
+                                  const sel = curModel===m.id;
+                                  return(
+                                    <button key={m.id} onClick={()=>setProviderModels(prev=>({...prev,[p.id]:m.id}))}
+                                      style={{display:"flex",flexDirection:"column",alignItems:"flex-start",padding:"7px 11px",background:sel?`${p.color}14`:"rgba(255,255,255,0.03)",border:`1px solid ${sel?p.color:C.bd}`,borderRadius:6,cursor:"pointer",transition:"all .12s",minWidth:140}}>
+                                      <span style={{fontFamily:FM,fontSize:"10px",color:sel?p.color:"#fff",fontWeight:sel?700:400}}>{m.label} {sel?"✓":""}</span>
+                                      <span style={{fontFamily:FM,fontSize:"8px",color:C.mu,marginTop:2}}>{m.note}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div style={{background:`${PROVIDERS.claude.color}08`,border:`1px solid ${PROVIDERS.claude.color}20`,borderRadius:7,padding:"9px 13px"}}>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:PROVIDERS.claude.color,margin:"0 0 3px"}}>🟣 Council Tab luôn dùng Claude</p>
+                    <p style={{fontSize:11,color:C.mu,margin:0,lineHeight:1.55}}>Hội đồng 42 cố vấn yêu cầu model hiểu role-play tiếng Việt sâu — Claude tối ưu nhất cho việc này.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Setup progress */}
+            <div style={{background:C.bluD,border:`1px solid ${C.blu}20`,borderRadius:10,padding:"13px 18px",marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <div>
+                  <p style={{fontFamily:FM,fontSize:"8px",color:C.blu,letterSpacing:"2px",margin:"0 0 2px",textTransform:"uppercase"}}>Windows Setup · 13 bước từ đầu đến deploy</p>
+                  <p style={{fontSize:12,color:C.txt,margin:0}}>{sDone.size===SETUP.length?"🎉 Hoàn thành! Empire Council đang LIVE!":sDone.size===0?"Làm tuần tự từ Bước 1.":`Còn ${SETUP.length-sDone.size} bước nữa.`}</p>
+                </div>
+                <p style={{fontFamily:FM,fontSize:24,color:C.blu,margin:0,fontWeight:800}}>{sPct}%</p>
+              </div>
+              <div style={{height:4,background:"rgba(255,255,255,0.07)",borderRadius:2}}>
+                <div style={{width:`${sPct}%`,height:"100%",borderRadius:2,background:`linear-gradient(90deg,${C.blu},${C.grn})`,transition:"width .5s"}}/>
+              </div>
+            </div>
+            {[{ph:1,l:"Phase 1 — Cài tools",c:C.blu},{ph:2,l:"Phase 2 — Tài khoản & API",c:C.org},{ph:3,l:"Phase 3 — Project & cấu hình",c:C.pur},{ph:4,l:"Phase 4 — Code & Deploy",c:C.grn}].map(({ph,l,c:phC})=>(
+              <div key={ph} style={{marginBottom:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,margin:"0 0 8px"}}>
+                  <div style={{height:1,flex:1,background:C.bd}}/><span style={{fontFamily:FM,fontSize:"9px",color:phC,letterSpacing:"2px",textTransform:"uppercase"}}>{l}</span><div style={{height:1,flex:1,background:C.bd}}/>
+                </div>
+                {SETUP.filter(s=>s.ph===ph).map(step=>{
+                  const done=sDone.has(step.id),open=openStep===step.id,tc=step.tc;
+                  return(
+                    <div key={step.id} style={{background:done?`${C.grn}04`:C.s1,border:`1px solid ${open?tc:done?C.grn+"30":C.bd}`,borderRadius:8,overflow:"hidden",marginBottom:5}}>
+                      <div style={{display:"flex",alignItems:"flex-start",gap:12,padding:"11px 14px",cursor:"pointer"}} onClick={()=>setOpenStep(open?null:step.id)}>
+                        <div onClick={e=>{e.stopPropagation();togS(step.id);}} style={{width:21,height:21,borderRadius:5,flexShrink:0,background:done?C.grn:"transparent",border:`2px solid ${done?C.grn:C.bdH}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all .12s",boxShadow:done?`0 0 7px ${C.grn}40`:"none"}}>
+                          {done&&<span style={{color:"#000",fontSize:10,fontWeight:800}}>✓</span>}
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:2}}>
+                            <span style={{fontFamily:FM,fontSize:"8px",color:tc,background:`${tc}14`,border:`1px solid ${tc}25`,padding:"1px 7px",borderRadius:3,letterSpacing:"1px",textTransform:"uppercase"}}>{step.tag}</span>
+                            <span style={{fontFamily:FM,fontSize:"8px",color:C.mu}}>⏱ {step.time}</span>
+                            {done&&<span style={{fontFamily:FM,fontSize:"8px",color:C.grn,fontWeight:700}}>DONE ✓</span>}
+                          </div>
+                          <p style={{fontSize:13,fontWeight:700,margin:0,color:done?"rgba(232,227,216,0.28)":"#fff",textDecoration:done?"line-through":"none"}}>{step.title}</p>
+                        </div>
+                        <span style={{fontFamily:FM,fontSize:"9px",color:C.fa,paddingTop:2}}>{open?"▲":"▼"}</span>
+                      </div>
+                      {open&&(
+                        <div style={{padding:"0 14px 13px 47px",borderTop:`1px solid ${C.bd}`}}>
+                          <p style={{fontSize:11,color:C.mu,margin:"8px 0 9px",fontStyle:"italic",lineHeight:1.65}}>💡 {step.why}</p>
+                          {step.items.map((item,i)=>(
+                            <div key={i} style={{marginBottom:6}}>
+                              {(item.t==="do"||item.t==="go")&&<div style={{display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:tc,flexShrink:0,fontSize:10,marginTop:3}}>{item.t==="go"?"🔗":"▸"}</span><p style={{fontSize:12,color:C.txt,margin:0,lineHeight:1.65}}>{item.v}</p></div>}
+                              {item.t==="cmd"&&<div style={{background:"rgba(0,0,0,0.6)",border:`1px solid ${tc}20`,borderRadius:5,padding:"7px 11px",display:"flex",gap:7,alignItems:"flex-start",marginTop:2}}><span style={{color:tc,fontFamily:FM,fontSize:"9px",flexShrink:0,paddingTop:1}}>$</span><pre style={{fontFamily:FM,fontSize:"11px",color:tc,margin:0,whiteSpace:"pre-wrap",wordBreak:"break-all",lineHeight:1.6}}>{item.v}</pre></div>}
+                              {item.t==="ok"&&<div style={{display:"flex",gap:7,alignItems:"flex-start",paddingLeft:4,marginTop:2}}><span style={{color:C.grn,flexShrink:0,fontSize:10,marginTop:2}}>→</span><p style={{fontFamily:FM,fontSize:"10px",color:C.grn,margin:0,lineHeight:1.6}}>{item.v}</p></div>}
+                            </div>
+                          ))}
+                          {step.fix&&<div style={{marginTop:7,padding:"7px 11px",borderRadius:5,background:C.orgD,border:`1px solid ${C.org}20`}}><p style={{fontFamily:FM,fontSize:"8px",color:C.org,margin:"0 0 2px",letterSpacing:"1px",textTransform:"uppercase"}}>⚠ Nếu lỗi</p><p style={{fontSize:11,color:C.txt,margin:0,lineHeight:1.55}}>{step.fix}</p></div>}
+                          {step.check&&<div style={{marginTop:6,padding:"7px 11px",borderRadius:5,background:C.grnD,border:`1px solid ${C.grn}20`}}><p style={{fontFamily:FM,fontSize:"8px",color:C.grn,margin:"0 0 2px",letterSpacing:"1px",textTransform:"uppercase"}}>✅ Checkpoint</p><p style={{fontSize:11,color:C.txt,margin:0}}>{step.check}</p></div>}
+                          <button onClick={()=>togS(step.id)} style={{marginTop:10,fontFamily:FM,fontSize:"9px",letterSpacing:"1.5px",textTransform:"uppercase",background:done?C.grnD:`${tc}0F`,border:`1px solid ${done?C.grn:tc}22`,color:done?C.grn:tc,padding:"6px 14px",borderRadius:4,cursor:"pointer"}}>{done?"✓ Done — Bỏ đánh dấu":"Đánh dấu hoàn thành ✓"}</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ════ ROADMAP ════ */}
+        {tab==="roadmap"&&yr&&(
+          <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:"14px 20px 40px",boxSizing:"border-box"}}>
+            <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"14px 18px",marginBottom:16}}>
+              <p style={{fontFamily:FM,fontSize:"8px",color:C.org,letterSpacing:"2px",margin:"0 0 10px",textTransform:"uppercase"}}>Lộ Trình Tự Động Hoá — 2026 đến 2030</p>
+              <div style={{display:"flex",gap:4}}>
+                {YEARS.map((y,i)=>(
+                  <div key={y.y} onClick={()=>setSelYear(y.y)} style={{flex:1,cursor:"pointer"}}>
+                    <div style={{height:8,background:`${y.col}18`,border:`1px solid ${y.col}30`,borderRadius:i===0?"4px 0 0 4px":i===4?"0 4px 4px 0":0,overflow:"hidden"}}>
+                      <div style={{width:`${y.pct}%`,height:"100%",background:y.col,opacity:selYear===y.y?1:0.5,transition:"all .3s"}}/>
+                    </div>
+                    <p style={{fontFamily:FM,fontSize:"8px",color:selYear===y.y?y.col:C.mu,margin:"4px 0 0",textAlign:"center"}}>{y.period} · {y.pct}%</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+              {YEARS.map(y=>{const sel=selYear===y.y;return(
+                <button key={y.y} onClick={()=>{setSelYear(y.y);setYrView("owns");}} style={{flex:1,minWidth:110,padding:"12px 10px",textAlign:"center",background:sel?`${y.col}14`:C.s1,border:`1px solid ${sel?y.col:C.bd}`,borderRadius:9,cursor:"pointer",transition:"all .15s",boxShadow:sel?`0 0 14px ${y.col}18`:"none"}}>
+                  <p style={{fontSize:18,margin:"0 0 4px"}}>{y.icon}</p>
+                  <p style={{fontFamily:FM,fontSize:"8px",color:sel?y.col:C.mu,margin:"0 0 2px",letterSpacing:"1px"}}>{y.period}</p>
+                  <p style={{fontSize:11,fontWeight:sel?700:400,color:sel?"#fff":C.mu,margin:"0 0 4px",lineHeight:1.3}}>{y.theme}</p>
+                  <p style={{fontFamily:FM,fontSize:"8px",color:y.col,margin:0}}>{y.pct}% auto</p>
+                </button>
+              );})}
+            </div>
+            <div style={{background:`${yr.col}09`,border:`1px solid ${yr.col}25`,borderRadius:10,padding:"16px 18px",marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
+                <div style={{flex:1,minWidth:220}}>
+                  <p style={{fontFamily:FM,fontSize:"8px",color:yr.col,margin:"0 0 4px",letterSpacing:"2px",textTransform:"uppercase"}}>Bạn là ai trong năm này</p>
+                  <p style={{fontSize:19,fontWeight:800,color:"#fff",margin:"0 0 6px"}}>{yr.icon} {yr.identity}</p>
+                  <p style={{fontSize:13,color:C.mu,margin:"0 0 10px",lineHeight:1.6,fontStyle:"italic"}}>"{yr.mantra}"</p>
+                  <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{yr.skills.map(s=><span key={s} style={{fontFamily:FM,fontSize:"9px",color:yr.col,background:`${yr.col}14`,border:`1px solid ${yr.col}28`,padding:"2px 9px",borderRadius:3}}>{s}</span>)}</div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:8,minWidth:180}}>
+                  <div style={{background:"rgba(0,0,0,0.3)",border:`1px solid ${C.bd}`,borderRadius:7,padding:"10px 14px"}}>
+                    <p style={{fontFamily:FM,fontSize:"7px",color:C.mu,margin:"0 0 3px",letterSpacing:"1px",textTransform:"uppercase"}}>Thu nhập mục tiêu</p>
+                    <p style={{fontFamily:FM,fontSize:12,color:yr.col,margin:"0 0 8px",fontWeight:700}}>{yr.income}</p>
+                    <p style={{fontFamily:FM,fontSize:"7px",color:C.mu,margin:"0 0 3px",letterSpacing:"1px",textTransform:"uppercase"}}>Key metric</p>
+                    <p style={{fontFamily:FM,fontSize:11,color:C.grn,margin:0}}>{yr.metric}</p>
+                  </div>
+                  <div style={{background:"rgba(0,0,0,0.3)",border:`1px solid ${C.bd}`,borderRadius:7,padding:"10px 14px"}}>
+                    <p style={{fontFamily:FM,fontSize:"7px",color:C.mu,margin:"0 0 5px",letterSpacing:"1px",textTransform:"uppercase"}}>Đánh giá khả thi</p>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+                      <div style={{flex:1,height:6,background:"rgba(255,255,255,0.07)",borderRadius:3}}>
+                        <div style={{width:`${yr.feasibility}%`,height:"100%",borderRadius:3,background:yr.feasibility>70?C.grn:yr.feasibility>45?C.gold:C.org}}/>
+                      </div>
+                      <span style={{fontFamily:FM,fontSize:12,color:yr.feasibility>70?C.grn:yr.feasibility>45?C.gold:C.org,fontWeight:700}}>{yr.feasibility}%</span>
+                    </div>
+                    <p style={{fontSize:10,color:C.mu,margin:0,lineHeight:1.5}}>{yr.feasNote}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:5,marginBottom:12}}>
+              {[["owns","⚙️ Empire Sở Hữu"],["quarters","📋 Hành Động Theo Quý"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setYrView(v)} style={{padding:"7px 16px",background:yrView===v?`${yr.col}14`:"rgba(255,255,255,0.02)",border:`1px solid ${yrView===v?yr.col:C.bd}`,borderRadius:6,cursor:"pointer",fontFamily:FM,fontSize:"9px",color:yrView===v?yr.col:C.mu,letterSpacing:"1px",textTransform:"uppercase"}}>{l}</button>
+              ))}
+            </div>
+            {yrView==="owns"&&(
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:9,padding:"14px 16px"}}>
+                  <p style={{fontFamily:FM,fontSize:"8px",color:yr.col,margin:"0 0 10px",letterSpacing:"1.5px",textTransform:"uppercase"}}>Empire sẽ có</p>
+                  {yr.owns.map((item,i)=>(
+                    <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:7}}>
+                      <div style={{width:5,height:5,borderRadius:"50%",background:yr.col,flexShrink:0,marginTop:6}}/>
+                      <p style={{fontSize:12,color:C.txt,margin:0,lineHeight:1.65}}>{item}</p>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:9,padding:"14px 16px"}}>
+                    <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 6px",letterSpacing:"1.5px",textTransform:"uppercase"}}>Trạng thái</p>
+                    <p style={{fontSize:16,margin:"0 0 6px"}}>{yr.status}</p>
+                    <div style={{height:5,background:"rgba(255,255,255,0.07)",borderRadius:2,marginTop:8}}>
+                      <div style={{width:`${yr.pct}%`,height:"100%",borderRadius:2,background:`linear-gradient(90deg,${yr.col}80,${yr.col})`}}/>
+                    </div>
+                    <p style={{fontFamily:FM,fontSize:10,color:yr.col,margin:"5px 0 0",fontWeight:700}}>{yr.pct}% Automation</p>
+                  </div>
+                  {selYear>1 && YEARS.filter(y=>y.y===selYear-1).map(prev=>(
+                    <div key="prev" style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:9,padding:"14px 16px",flex:1}}>
+                      <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 7px",letterSpacing:"1.5px",textTransform:"uppercase"}}>Tiến độ từ năm trước</p>
+                      <p style={{fontSize:11,color:C.mu,margin:"0 0 4px"}}><span style={{color:prev.col}}>Năm {prev.y}:</span> {prev.pct}% · {prev.identity}</p>
+                      <p style={{fontSize:11,color:C.mu,margin:0}}><span style={{color:yr.col}}>Năm {yr.y}:</span> {yr.pct}% · {yr.identity}</p>
+                      <p style={{fontFamily:FM,fontSize:10,color:C.grn,margin:"7px 0 0"}}>+{yr.pct-prev.pct}% automation</p>
+                    </div>
+                  ))}
+                  {selYear===1&&<div style={{background:C.grnD,border:`1px solid ${C.grn}20`,borderRadius:9,padding:"14px 16px",flex:1}}><p style={{fontFamily:FM,fontSize:"8px",color:C.grn,margin:"0 0 6px",letterSpacing:"1px",textTransform:"uppercase"}}>Bạn đang ở đây</p><p style={{fontSize:12,color:C.txt,margin:0,lineHeight:1.65}}>Tháng 3/2026 — đế chế bắt đầu từ đây.</p></div>}
+                </div>
+              </div>
+            )}
+            {yrView==="quarters"&&(
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:8}}>
+                {yr.quarters.map(q=>(
+                  <div key={q.q} style={{background:C.s1,border:`1px solid ${yr.col}20`,borderRadius:9,padding:"14px 15px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                      <span style={{fontFamily:FM,fontSize:"9px",color:yr.col,background:`${yr.col}18`,border:`1px solid ${yr.col}30`,padding:"2px 9px",borderRadius:3,letterSpacing:"1px"}}>{q.q}</span>
+                      <p style={{fontSize:13,fontWeight:700,color:"#fff",margin:0}}>{q.t}</p>
+                    </div>
+                    {q.items.map((item,i)=>(
+                      <div key={i} style={{display:"flex",gap:7,alignItems:"flex-start",marginBottom:7}}>
+                        <span style={{color:yr.col,flexShrink:0,fontSize:9,marginTop:4}}>▸</span>
+                        <p style={{fontSize:12,color:C.txt,margin:0,lineHeight:1.65}}>{item}</p>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{marginTop:16,background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"14px 18px"}}>
+              <p style={{fontFamily:FM,fontSize:"8px",color:C.fa,margin:"0 0 10px",letterSpacing:"2px",textTransform:"uppercase"}}>Toàn bộ hành trình 5 năm</p>
+              <div style={{display:"flex",alignItems:"center",gap:0,overflowX:"auto"}}>
+                {YEARS.map((y,i)=>(
+                  <div key={y.y} style={{display:"flex",alignItems:"center",flexShrink:0}}>
+                    <div onClick={()=>setSelYear(y.y)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"8px 14px",background:`${y.col}0E`,border:`1px solid ${selYear===y.y?y.col:y.col+"28"}`,borderRadius:7,cursor:"pointer",minWidth:110,textAlign:"center",boxShadow:selYear===y.y?`0 0 12px ${y.col}20`:"none"}}>
+                      <span style={{fontSize:14}}>{y.icon}</span>
+                      <p style={{fontFamily:FM,fontSize:"9px",color:y.col,margin:0}}>{y.period}</p>
+                      <p style={{fontSize:10,color:selYear===y.y?"#fff":C.mu,margin:0,fontWeight:selYear===y.y?700:400,lineHeight:1.3}}>{y.theme}</p>
+                      <div style={{display:"flex",alignItems:"center",gap:4,marginTop:2}}>
+                        <div style={{width:30,height:2,background:`${y.col}20`,borderRadius:1,overflow:"hidden"}}><div style={{width:`${y.feasibility}%`,height:"100%",background:y.col}}/></div>
+                        <p style={{fontFamily:FM,fontSize:"7px",color:y.feasibility>70?C.grn:y.feasibility>45?C.gold:C.org,margin:0}}>{y.feasibility}%</p>
+                      </div>
+                    </div>
+                    {i<4&&<div style={{width:16,height:1,background:`linear-gradient(90deg,${y.col}60,${YEARS[i+1].col}60)`,flexShrink:0}}/>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
