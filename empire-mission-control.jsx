@@ -504,9 +504,38 @@ const PROVIDERS = {
     ],
     defaultModel: "qwen-plus",
   },
+  openrouter: {
+    id: "openrouter", name: "OpenRouter", icon: "🔀", color: "#6EE7B7",
+    apiType: "openai",
+    baseUrl: "https://openrouter.ai/api/v1/chat/completions",
+    keyPlaceholder: "sk-or-v1-... (OpenRouter API Key)",
+    keyHint: "openrouter.ai → Keys — 1 key dùng được 200+ models",
+    models: [
+      // Claude via OpenRouter
+      { id: "anthropic/claude-sonnet-4-5",        label: "Claude Sonnet 4.5",     note: "🟣 Anthropic" },
+      { id: "anthropic/claude-opus-4-5",           label: "Claude Opus 4.5",      note: "🟣 Mạnh nhất Claude" },
+      // GPT via OpenRouter
+      { id: "openai/gpt-4.5-preview",              label: "GPT-4.5 Preview",      note: "⚫ OpenAI mới nhất" },
+      { id: "openai/gpt-4o",                       label: "GPT-4o",               note: "⚫ Nhanh multimodal" },
+      { id: "openai/o3",                           label: "o3",                   note: "⚫ Reasoning mạnh" },
+      // Gemini via OpenRouter
+      { id: "google/gemini-2.5-pro-preview",       label: "Gemini 2.5 Pro",       note: "🔵 Top benchmark" },
+      { id: "google/gemini-2.5-flash-preview",     label: "Gemini 2.5 Flash",     note: "🔵 Nhanh rẻ" },
+      // Kimi via OpenRouter
+      { id: "moonshotai/kimi-k2",                  label: "Kimi K2",              note: "🌙 Agent & coding" },
+      // Qwen via OpenRouter
+      { id: "qwen/qwen-max",                       label: "Qwen Max",             note: "🟠 Alibaba mạnh nhất" },
+      { id: "qwen/qwen-turbo",                     label: "Qwen Turbo",           note: "🟠 Nhanh rẻ" },
+      // Other top models
+      { id: "deepseek/deepseek-r1",                label: "DeepSeek R1",          note: "🧠 Reasoning OSS" },
+      { id: "meta-llama/llama-4-maverick",         label: "Llama 4 Maverick",     note: "🦙 Meta open source" },
+      { id: "mistralai/mistral-large",             label: "Mistral Large",        note: "🌊 EU model" },
+    ],
+    defaultModel: "anthropic/claude-sonnet-4-5",
+  },
 };
 const PROVIDER_LIST = Object.values(PROVIDERS); // ordered array
-const DEFAULT_PROVIDER = "claude";
+const DEFAULT_PROVIDER = "openrouter";
 
 const CFG_KEY = "empire_v2_config";
 const loadCfg = async () => {
@@ -897,7 +926,7 @@ export default function App() {
   const [providerModels,   setProviderModels]   = useState(() =>
     Object.fromEntries(PROVIDER_LIST.map(p => [p.id, p.defaultModel]))
   );
-  const [apiKeys,          setApiKeys]          = useState({ claude:"", openai:"", gemini:"", kimi:"", qwen:"" });
+  const [apiKeys,          setApiKeys]          = useState({ claude:"", openai:"", gemini:"", kimi:"", qwen:"", openrouter:"" });
   const [showProvSettings, setShowProvSettings] = useState(false);
   const [expandedProv,     setExpandedProv]     = useState(null); // which provider card is open
   // Roadmap
@@ -969,12 +998,21 @@ export default function App() {
       return d?.content?.[0]?.text || "Không có response.";
     }
 
-    // ── OpenAI-compatible REST (OpenAI, Gemini, Kimi, Qwen)
+    // ── OpenAI-compatible REST (OpenAI, Gemini, Kimi, Qwen, OpenRouter)
     const key = apiKeys[prov.id];
     if (!key) throw new Error(`⚠️ Chưa có API Key cho ${prov.name}. Vào ⚙️ Setup → Provider Settings để nhập.`);
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${key}`,
+    };
+    // OpenRouter requires extra headers
+    if (prov.id === "openrouter") {
+      headers["HTTP-Referer"] = "https://empire-council.app";
+      headers["X-Title"] = "Empire Mission Control";
+    }
     const r = await fetch(prov.baseUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+      headers,
       body: JSON.stringify({ model, messages: [{ role: "system", content: finalSys }, ...msgs], max_tokens: 1400 }),
     });
     const d = await r.json();
@@ -995,7 +1033,12 @@ export default function App() {
     setCMsgs(p => [...p, { role: "user", content: txt }]);
     try {
       const hist = cMsgs.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
-      const reply = await callAI(mkCouncilSys(), hist, txt, "claude"); // Council always Claude
+      // Council: prefer openrouter if key set, else fallback to claude
+      const councilProv = apiKeys.openrouter ? "openrouter" : "claude";
+      const councilModel = apiKeys.openrouter
+        ? (providerModels.openrouter || "anthropic/claude-sonnet-4-5")
+        : (providerModels.claude || PROVIDERS.claude.defaultModel);
+      const reply = await callAI(mkCouncilSys(), hist, txt, councilProv, councilModel);
       setCMsgs(p => [...p, { role: "assistant", content: reply, label: "🏛️ Hội Đồng", aid: "council" }]);
       if (useRAG && txt.length > 15) {
         const newMem = { id: Date.now().toString(), text: `[Council] ${txt.slice(0, 120)}`, tag: "council", ts: Date.now(), src: "auto" };
@@ -1187,8 +1230,8 @@ export default function App() {
                 </button>
                 <button onClick={()=>setPanel(AGENTS.filter(a=>a.tier==="S").map(a=>a.id))} style={{fontFamily:FM,fontSize:"9px",color:C.gold,background:C.gD,border:`1px solid ${C.gold}28`,padding:"4px 11px",borderRadius:4,cursor:"pointer",letterSpacing:"1px"}}>S-TIER</button>
                 <button onClick={()=>setPanel(AGENTS.slice(0,8).map(a=>a.id))} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer"}}>TOP 8</button>
-                <span style={{fontFamily:FM,fontSize:"8px",color:PROVIDERS.claude.color,background:`${PROVIDERS.claude.color}10`,border:`1px solid ${PROVIDERS.claude.color}25`,padding:"3px 10px",borderRadius:3,marginLeft:"auto"}}>
-                  {PROVIDERS.claude.icon} Council · {providerModels.claude || PROVIDERS.claude.defaultModel}
+                <span style={{fontFamily:FM,fontSize:"8px",color:apiKeys.openrouter?PROVIDERS.openrouter.color:PROVIDERS.claude.color,background:`${apiKeys.openrouter?PROVIDERS.openrouter.color:PROVIDERS.claude.color}10`,border:`1px solid ${apiKeys.openrouter?PROVIDERS.openrouter.color:PROVIDERS.claude.color}25`,padding:"3px 10px",borderRadius:3,marginLeft:"auto"}}>
+                  {apiKeys.openrouter ? `🔀 ${providerModels.openrouter||"anthropic/claude-sonnet-4-5"}` : `🟣 Council · ${providerModels.claude||PROVIDERS.claude.defaultModel}`}
                 </span>
                 <button onClick={()=>setShowGrid(p=>!p)} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer"}}>{showGrid?"▲ Ẩn":"▼ 42 Agents"}</button>
                 {cMsgs.length>0&&<button onClick={()=>setCMsgs([])} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer"}}>XÓA</button>}
