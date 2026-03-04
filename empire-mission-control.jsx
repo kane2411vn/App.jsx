@@ -553,7 +553,7 @@ const saveCfg = async (cfg) => {
 
 // ─── SHARED UI COMPONENTS (top-level so ChatTab + App can both use them) ──────
 function Bubbles({ msgs, busy, botRef, acol, onStar, starredIds }) {
-  const [hovIdx, setHovIdx] = React.useState(null);
+  const [hovIdx, setHovIdx] = useState(null);
   return (
     <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:8, paddingBottom:8 }}>
       {msgs.map((m,i) => {
