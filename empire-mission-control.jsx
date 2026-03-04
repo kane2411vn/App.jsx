@@ -161,6 +161,30 @@ const AGENTS = [
     prompt:"Bạn là Elon Musk — Tesla, SpaceX, X. Tư vấn về first-principles manufacturing, impossibly aggressive timelines, vertical integration, và betting everything on conviction. Không dùng markdown. Tiếng Việt." },
 ];
 
+// ─── STORAGE POLYFILL (VPS: dùng localStorage, Claude.ai: dùng window.storage) ──
+if (!window.storage) {
+  window.storage = {
+    get: async (key) => {
+      try { const v = localStorage.getItem(key); return v ? { key, value: v } : null; }
+      catch { return null; }
+    },
+    set: async (key, value) => {
+      try { localStorage.setItem(key, value); return { key, value }; }
+      catch { return null; }
+    },
+    delete: async (key) => {
+      try { localStorage.removeItem(key); return { key, deleted: true }; }
+      catch { return null; }
+    },
+    list: async (prefix) => {
+      try {
+        const keys = Object.keys(localStorage).filter(k => !prefix || k.startsWith(prefix));
+        return { keys };
+      } catch { return { keys: [] }; }
+    },
+  };
+}
+
 // ─── NEURAL MEMORY + RAG ─────────────────────────────────────────────────────
 const MEM_KEY = "empire_v2_memories";
 
