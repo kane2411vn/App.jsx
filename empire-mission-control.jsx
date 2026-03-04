@@ -552,15 +552,20 @@ const saveCfg = async (cfg) => {
 
 
 // ─── SHARED UI COMPONENTS (top-level so ChatTab + App can both use them) ──────
-function Bubbles({ msgs, busy, botRef, acol }) {
+function Bubbles({ msgs, busy, botRef, acol, onStar, starredIds }) {
+  const [hovIdx, setHovIdx] = React.useState(null);
   return (
     <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:8, paddingBottom:8 }}>
       {msgs.map((m,i) => {
         const isU = m.role==="user";
         const mc  = AGENTS.find(a=>a.id===m.aid)?.col || C.gold;
+        const isStarred = starredIds && starredIds.has(m.id);
         return (
-          <div key={i} style={{display:"flex",flexDirection:"column",alignItems:isU?"flex-end":"flex-start",gap:3}}>
-            {/* Bot message header: agent name + model badge */}
+          <div key={i}
+            onMouseEnter={()=>setHovIdx(i)}
+            onMouseLeave={()=>setHovIdx(null)}
+            style={{display:"flex",flexDirection:"column",alignItems:isU?"flex-end":"flex-start",gap:3,position:"relative"}}>
+            {/* Bot message header */}
             {!isU && m.label && (
               <div style={{display:"flex",alignItems:"center",gap:6,margin:"0 0 3px 4px",flexWrap:"wrap"}}>
                 <p style={{fontFamily:FM,fontSize:"9px",color:mc,margin:0}}>{m.label}</p>
@@ -578,11 +583,27 @@ function Bubbles({ msgs, busy, botRef, acol }) {
                 )}
               </div>
             )}
-            <div style={{maxWidth:"87%",padding:"11px 15px",borderRadius:isU?"12px 12px 3px 12px":"12px 12px 12px 3px",background:isU?`${C.gold}0F`:`${mc}08`,border:`1px solid ${isU?C.gold+"22":mc+"1A"}`}}>
-              {isU
-                ? <p style={{fontSize:13,color:C.txt,margin:0,lineHeight:1.75,wordBreak:"break-word"}}>{m.content}</p>
-                : <Md text={m.content} accent={mc}/>
-              }
+            <div style={{position:"relative",maxWidth:"87%"}}>
+              <div style={{padding:"11px 15px",borderRadius:isU?"12px 12px 3px 12px":"12px 12px 12px 3px",background:isU?`${C.gold}0F`:`${mc}08`,border:`1px solid ${isStarred?(mc+"55"):(isU?C.gold+"22":mc+"1A")}`,transition:"border-color .15s"}}>
+                {isU
+                  ? <p style={{fontSize:13,color:C.txt,margin:0,lineHeight:1.75,wordBreak:"break-word"}}>{m.content}</p>
+                  : <Md text={m.content} accent={mc}/>
+                }
+              </div>
+              {/* Star button */}
+              {onStar && (hovIdx===i || isStarred) && (
+                <button onClick={()=>onStar(m,i)}
+                  title={isStarred?"Đã lưu vào Memory":"Lưu vào Memory"}
+                  style={{
+                    position:"absolute", top:6, right: isU ? "auto" : -28, left: isU ? -28 : "auto",
+                    background: isStarred?`${mc}22`:"rgba(0,0,0,0.5)",
+                    border:`1px solid ${isStarred?mc+"55":C.bd}`,
+                    borderRadius:6, padding:"3px 5px", cursor:"pointer",
+                    fontSize:12, lineHeight:1, transition:"all .15s",
+                  }}>
+                  {isStarred ? "⭐" : "☆"}
+                </button>
+              )}
             </div>
           </div>
         );
@@ -626,7 +647,7 @@ function ChatTab({ sessions, activeSessId, sessMessages, sessReady, sidebarOpen,
   editSessId, setEditSessId, editTitle, setEditTitle, hoverSessId, setHoverSessId,
   activeSess, activeMsgs, activeAg, newSession, switchSession, deleteSession,
   renameSession, sessUpdateCache, sessUpdateIndex, aBusy, aRef,
-  aIn, setAIn, sendAgent, useRAG, mems }) {
+  aIn, setAIn, sendAgent, useRAG, mems, onStar, starredIds }) {
 
   const now = Date.now();
   const DAY = 86400000;
@@ -933,6 +954,23 @@ export default function App() {
   const [apiKeys,          setApiKeys]          = useState({ claude:"", openai:"", gemini:"", kimi:"", qwen:"", openrouter:"" });
   const [showProvSettings, setShowProvSettings] = useState(false);
   const [expandedProv,     setExpandedProv]     = useState(null); // which provider card is open
+  // Starred messages
+  const [starredIds,  setStarredIds]  = useState(() => new Set());
+  // Compare Mode
+  const [compareMode,   setCompareMode]   = useState(false);
+  const [compareAgents, setCompareAgents] = useState(["carnegie","jobs","aristotle"]);
+  const [compareQ,      setCompareQ]      = useState("");
+  const [compareRes,    setCompareRes]    = useState({}); // {agentId: text}
+  const [compareBusy,   setCompareBusy]   = useState(false);
+  // Debate Mode
+  const [debateMode,    setDebateMode]    = useState(false);
+  const [debateA,       setDebateA]       = useState("carnegie");
+  const [debateB,       setDebateB]       = useState("jobs");
+  const [debateTopic,   setDebateTopic]   = useState("");
+  const [debateMsgs,    setDebateMsgs]    = useState([]);
+  const [debateBusy,    setDebateBusy]    = useState(false);
+  const [debateRound,   setDebateRound]   = useState(0);
+  const debateRef = useRef(null);
   // Roadmap
   const [selYear,   setSelYear]  = useState(1);
   const [yrView,    setYrView]   = useState("owns");
@@ -1022,6 +1060,100 @@ export default function App() {
     const d = await r.json();
     if (d?.error) throw new Error(d.error?.message || JSON.stringify(d.error));
     return d?.choices?.[0]?.message?.content || "Không có response.";
+  };
+
+  // ── Star message → Memory ────────────────────────────────────────────────
+  const starMessage = (msg, idx) => {
+    const mid = msg.id || `star_${idx}_${Date.now()}`;
+    setStarredIds(prev => {
+      const next = new Set(prev);
+      if (next.has(mid)) {
+        next.delete(mid);
+        return next;
+      }
+      next.add(mid);
+      // Save to memory
+      const snippet = msg.content.slice(0, 200).replace(/\n/g," ");
+      const agent   = AGENTS.find(a => a.id === msg.aid);
+      const text    = agent ? `[⭐ ${agent.n}] ${snippet}` : `[⭐ Council] ${snippet}`;
+      const newMem  = { id: mid, text, tag: "starred", ts: Date.now(), src: "star" };
+      setMems(prev2 => { const u = [...prev2, newMem]; saveMems(u); return u; });
+      return next;
+    });
+  };
+
+  // ── Compare Mode ─────────────────────────────────────────────────────────
+  const runCompare = async () => {
+    const txt = compareQ.trim();
+    if (!txt || compareBusy || compareAgents.length < 2) return;
+    setCompareBusy(true);
+    setCompareRes({});
+    try {
+      const results = {};
+      await Promise.all(compareAgents.map(async (agId) => {
+        const ag = AGENTS.find(a => a.id === agId);
+        if (!ag) return;
+        const sys = ag.prompt + "\n\nTrả lời ngắn gọn, súc tích, tối đa 150 từ. Tiếng Việt.";
+        const councilProv  = apiKeys.openrouter ? "openrouter" : "claude";
+        const councilModel = apiKeys.openrouter
+          ? (providerModels.openrouter || "anthropic/claude-sonnet-4-5")
+          : (providerModels.claude || PROVIDERS.claude.defaultModel);
+        try {
+          const reply = await callAI(sys, [], txt, councilProv, councilModel);
+          results[agId] = reply;
+        } catch (e) {
+          results[agId] = "⚠️ " + (e.message || "Lỗi");
+        }
+        setCompareRes(prev => ({ ...prev, ...results }));
+      }));
+    } catch(e) {}
+    setCompareBusy(false);
+  };
+
+  // ── Debate Mode ──────────────────────────────────────────────────────────
+  const startDebate = async () => {
+    const topic = debateTopic.trim();
+    if (!topic || debateBusy) return;
+    setDebateMsgs([]);
+    setDebateBusy(true);
+    setDebateRound(0);
+    const agA = AGENTS.find(a => a.id === debateA);
+    const agB = AGENTS.find(a => a.id === debateB);
+    if (!agA || !agB) { setDebateBusy(false); return; }
+    const councilProv  = apiKeys.openrouter ? "openrouter" : "claude";
+    const councilModel = apiKeys.openrouter
+      ? (providerModels.openrouter || "anthropic/claude-sonnet-4-5")
+      : (providerModels.claude || PROVIDERS.claude.defaultModel);
+    let history = [];
+    const rounds = 3;
+    for (let r = 0; r < rounds; r++) {
+      setDebateRound(r + 1);
+      // Agent A turn
+      const sysA = agA.prompt + `\n\nBạn đang TRANH LUẬN ủng hộ cho chủ đề: "${topic}".\nLượt ${r+1}/${rounds}. Đưa ra lập luận sắc bén, ngắn gọn 60-80 từ. Tiếng Việt. KHÔNG dùng markdown.`;
+      try {
+        const replyA = await callAI(sysA, history, r===0 ? topic : `[Lượt ${r+1}] Tiếp tục tranh luận`, councilProv, councilModel);
+        const msgA = { role:"assistant", content: replyA, agent: agA.id, agentName: agA.n, agentIcon: agA.icon, agentCol: agA.col, side:"A", round: r+1 };
+        setDebateMsgs(prev => [...prev, msgA]);
+        history.push({ role:"user", content: `[${agA.n} nói]: ${replyA}` });
+      } catch(e) { setDebateMsgs(prev => [...prev, {role:"assistant",content:"⚠️ Lỗi",agent:agA.id,agentName:agA.n,agentIcon:agA.icon,agentCol:agA.col,side:"A",round:r+1}]); }
+      // Agent B turn
+      const sysB = agB.prompt + `\n\nBạn đang PHẢN BIỆN chống lại chủ đề: "${topic}".\nLượt ${r+1}/${rounds}. Đưa ra lập luận phản biện sắc bén, ngắn gọn 60-80 từ. Tiếng Việt. KHÔNG dùng markdown.`;
+      try {
+        const replyB = await callAI(sysB, history, `[${agA.n} vừa nói]: ${history[history.length-1]?.content || ""}`, councilProv, councilModel);
+        const msgB = { role:"assistant", content: replyB, agent: agB.id, agentName: agB.n, agentIcon: agB.icon, agentCol: agB.col, side:"B", round: r+1 };
+        setDebateMsgs(prev => [...prev, msgB]);
+        history.push({ role:"user", content: `[${agB.n} phản biện]: ${replyB}` });
+      } catch(e) { setDebateMsgs(prev => [...prev, {role:"assistant",content:"⚠️ Lỗi",agent:agB.id,agentName:agB.n,agentIcon:agB.icon,agentCol:agB.col,side:"B",round:r+1}]); }
+      await new Promise(res => setTimeout(res, 300));
+    }
+    // Verdict
+    const sysVerdict = `Bạn là trọng tài công bằng. Hãy đưa ra KẾT LUẬN ngắn gọn 50-70 từ cho cuộc tranh luận về "${topic}" giữa ${agA.n} (ủng hộ) và ${agB.n} (phản biện). Ai thuyết phục hơn và tại sao? Tiếng Việt.`;
+    try {
+      const verdict = await callAI(sysVerdict, history, "Đưa ra kết luận cuộc tranh luận", councilProv, councilModel);
+      setDebateMsgs(prev => [...prev, { role:"assistant", content: verdict, agent:"council", agentName:"⚖️ Kết Luận", agentIcon:"⚖️", agentCol: C.gold, side:"verdict", round: rounds+1 }]);
+    } catch(e) {}
+    setDebateBusy(false);
+    setTimeout(() => debateRef.current?.scrollIntoView({ behavior:"smooth" }), 200);
   };
 
   // ── Council (always heavy) ────────────────────────────────────────────────
@@ -1239,6 +1371,14 @@ export default function App() {
                 </span>
                 <button onClick={()=>setShowGrid(p=>!p)} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer"}}>{showGrid?"▲ Ẩn":"▼ 42 Agents"}</button>
                 {cMsgs.length>0&&<button onClick={()=>setCMsgs([])} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer"}}>XÓA</button>}
+                <button onClick={()=>{setDebateMode(p=>!p);setCompareMode(false);}}
+                  style={{fontFamily:FM,fontSize:"9px",color:debateMode?"#F87171":C.mu,background:debateMode?"rgba(248,113,113,0.1)":"transparent",border:`1px solid ${debateMode?"#F87171":C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer",letterSpacing:"0.5px"}}>
+                  ⚔️ Debate
+                </button>
+                <button onClick={()=>{setCompareMode(p=>!p);setDebateMode(false);}}
+                  style={{fontFamily:FM,fontSize:"9px",color:compareMode?C.pur:C.mu,background:compareMode?`${C.pur}10`:"transparent",border:`1px solid ${compareMode?C.pur:C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer",letterSpacing:"0.5px"}}>
+                  🔀 Compare
+                </button>
               </div>
               {showGrid&&(
                 <div style={{maxHeight:240,overflowY:"auto",marginBottom:10}}>
@@ -1268,7 +1408,110 @@ export default function App() {
                 {panel.length>8&&<span style={{fontFamily:FM,fontSize:"8px",color:C.org,background:C.orgD,border:`1px solid ${C.org}25`,padding:"2px 8px",borderRadius:3,marginLeft:"auto"}}>⚠ {panel.length} agents → prompt lớn → tốn hơn</span>}
               </div>
             </div>
-            <Bubbles msgs={cMsgs} busy={cBusy} botRef={cRef} acol={C.gold}/>
+            {/* ══ DEBATE MODE ══ */}
+            {debateMode && (
+              <div style={{flexShrink:0,marginBottom:10,background:"rgba(248,113,113,0.05)",border:"1px solid rgba(248,113,113,0.2)",borderRadius:10,padding:"14px 16px"}}>
+                <p style={{fontFamily:FM,fontSize:"9px",color:"#F87171",letterSpacing:"2px",margin:"0 0 10px"}}>⚔️ DEBATE MODE — 2 AGENTS TRANH LUẬN 3 LƯỢT</p>
+                <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                  <div style={{flex:1,minWidth:120}}>
+                    <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 5px",letterSpacing:"1px"}}>AGENT A (ỦNG HỘ)</p>
+                    <select value={debateA} onChange={e=>setDebateA(e.target.value)}
+                      style={{width:"100%",background:C.s1,border:`1px solid ${AGENTS.find(a=>a.id===debateA)?.col||C.bd}`,borderRadius:5,padding:"6px 10px",color:C.txt,fontFamily:FM,fontSize:"10px",cursor:"pointer"}}>
+                      {AGENTS.map(a=><option key={a.id} value={a.id}>{a.icon} {a.n}</option>)}
+                    </select>
+                  </div>
+                  <div style={{display:"flex",alignItems:"flex-end",paddingBottom:4}}>
+                    <span style={{fontFamily:FM,fontSize:"11px",color:"#F87171",fontWeight:700}}>VS</span>
+                  </div>
+                  <div style={{flex:1,minWidth:120}}>
+                    <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 5px",letterSpacing:"1px"}}>AGENT B (PHẢN BIỆN)</p>
+                    <select value={debateB} onChange={e=>setDebateB(e.target.value)}
+                      style={{width:"100%",background:C.s1,border:`1px solid ${AGENTS.find(a=>a.id===debateB)?.col||C.bd}`,borderRadius:5,padding:"6px 10px",color:C.txt,fontFamily:FM,fontSize:"10px",cursor:"pointer"}}>
+                      {AGENTS.map(a=><option key={a.id} value={a.id}>{a.icon} {a.n}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <input value={debateTopic} onChange={e=>setDebateTopic(e.target.value)}
+                    onKeyDown={e=>e.key==="Enter"&&startDebate()}
+                    placeholder="Chủ đề tranh luận... (vd: Nên học TypeScript hay Python trước?)"
+                    style={{flex:1,background:C.s1,border:`1px solid ${C.bd}`,borderRadius:6,padding:"8px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none"}}/>
+                  <button onClick={startDebate} disabled={debateBusy||!debateTopic.trim()}
+                    style={{padding:"8px 16px",background:debateBusy?"transparent":"rgba(248,113,113,0.15)",border:"1px solid rgba(248,113,113,0.4)",borderRadius:6,cursor:debateBusy?"not-allowed":"pointer",fontFamily:FM,fontSize:"10px",color:"#F87171",letterSpacing:"1px"}}>
+                    {debateBusy?`🔥 Lượt ${debateRound}/3`:"⚔️ BẮT ĐẦU"}
+                  </button>
+                </div>
+                {debateMsgs.length>0&&(
+                  <div style={{marginTop:12,maxHeight:360,overflowY:"auto",display:"flex",flexDirection:"column",gap:6}}>
+                    {debateMsgs.map((m,i)=>{
+                      const isVerdict = m.side==="verdict";
+                      const isA = m.side==="A";
+                      return(
+                        <div key={i} style={{display:"flex",flexDirection:"column",alignItems:isVerdict?"center":isA?"flex-start":"flex-end"}}>
+                          <span style={{fontFamily:FM,fontSize:"8px",color:m.agentCol,marginBottom:3}}>{m.agentIcon} {m.agentName} {isVerdict?"":"· Lượt "+m.round}</span>
+                          <div style={{maxWidth:"85%",padding:"10px 14px",borderRadius:isA?"10px 10px 10px 2px":isVerdict?"10px":"10px 10px 2px 10px",background:isVerdict?`${C.gold}08`:`${m.agentCol}08`,border:`1px solid ${isVerdict?C.gold+"30":m.agentCol+"25"}`,fontSize:12,color:C.txt,lineHeight:1.7}}>
+                            {m.content}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {debateBusy&&<div style={{display:"flex",gap:4,justifyContent:"center",padding:"6px 0"}}>{[0,1,2].map(i=><div key={i} style={{width:5,height:5,borderRadius:"50%",background:"#F87171",animation:`dot 1.2s ${i*.2}s ease-in-out infinite`}}/>)}</div>}
+                    <div ref={debateRef}/>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ══ COMPARE MODE ══ */}
+            {compareMode && (
+              <div style={{flexShrink:0,marginBottom:10,background:`${C.pur}08`,border:`1px solid ${C.pur}25`,borderRadius:10,padding:"14px 16px"}}>
+                <p style={{fontFamily:FM,fontSize:"9px",color:C.pur,letterSpacing:"2px",margin:"0 0 10px"}}>🔀 COMPARE MODE — HỎI 1 CÂU, NHIỀU AGENTS TRẢ LỜI SONG SONG</p>
+                <div style={{marginBottom:10}}>
+                  <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 6px",letterSpacing:"1px"}}>CHỌN AGENTS SO SÁNH</p>
+                  <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                    {AGENTS.filter(a=>a.tier==="S"||a.tier==="A").map(a=>{
+                      const sel=compareAgents.includes(a.id);
+                      return(
+                        <button key={a.id} onClick={()=>setCompareAgents(prev=>sel?prev.filter(x=>x!==a.id):[...prev,a.id])}
+                          style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",background:sel?`${a.col}14`:"transparent",border:`1px solid ${sel?a.col:C.bd}`,borderRadius:5,cursor:"pointer",fontFamily:FM,fontSize:"9px",color:sel?a.col:C.mu}}>
+                          {a.icon} {a.n} {sel&&"✓"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <input value={compareQ} onChange={e=>setCompareQ(e.target.value)}
+                    onKeyDown={e=>e.key==="Enter"&&runCompare()}
+                    placeholder={`Hỏi ${compareAgents.length} agents cùng lúc...`}
+                    style={{flex:1,background:C.s1,border:`1px solid ${C.bd}`,borderRadius:6,padding:"8px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none"}}/>
+                  <button onClick={runCompare} disabled={compareBusy||!compareQ.trim()||compareAgents.length<2}
+                    style={{padding:"8px 16px",background:compareBusy?"transparent":`${C.pur}15`,border:`1px solid ${C.pur}40`,borderRadius:6,cursor:compareBusy?"not-allowed":"pointer",fontFamily:FM,fontSize:"10px",color:C.pur,letterSpacing:"1px"}}>
+                    {compareBusy?"⏳ Đang hỏi...":"🔀 SO SÁNH"}
+                  </button>
+                </div>
+                {Object.keys(compareRes).length>0&&(
+                  <div style={{marginTop:12,display:"grid",gridTemplateColumns:`repeat(${Math.min(compareAgents.length,3)},1fr)`,gap:8}}>
+                    {compareAgents.map(agId=>{
+                      const ag=AGENTS.find(a=>a.id===agId);
+                      const res=compareRes[agId];
+                      if(!ag)return null;
+                      return(
+                        <div key={agId} style={{background:`${ag.col}06`,border:`1px solid ${ag.col}20`,borderRadius:8,padding:"10px 12px"}}>
+                          <p style={{fontFamily:FM,fontSize:"9px",color:ag.col,margin:"0 0 6px"}}>{ag.icon} {ag.n}</p>
+                          {res
+                            ? <p style={{fontSize:12,color:C.txt,margin:0,lineHeight:1.7}}>{res}</p>
+                            : <div style={{display:"flex",gap:3}}>{[0,1,2].map(i=><div key={i} style={{width:5,height:5,borderRadius:"50%",background:ag.col,animation:`dot 1.2s ${i*.2}s ease-in-out infinite`}}/>)}</div>
+                          }
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Bubbles msgs={cMsgs} busy={cBusy} botRef={cRef} acol={C.gold} onStar={starMessage} starredIds={starredIds}/>
             {cMsgs.length===0&&!cBusy&&(
               <div style={{flexShrink:0,padding:"12px 0",textAlign:"center"}}>
                 <p style={{fontSize:12,color:C.mu,margin:"0 0 10px"}}>Hội đồng {panel.length} cố vấn sẵn sàng.</p>
@@ -1293,6 +1536,7 @@ export default function App() {
             editSessId={editSessId} setEditSessId={setEditSessId}
             editTitle={editTitle} setEditTitle={setEditTitle}
             hoverSessId={hoverSessId} setHoverSessId={setHoverSessId}
+            onStar={starMessage} starredIds={starredIds}
             activeSess={activeSess} activeMsgs={activeMsgs} activeAg={activeAg}
             newSession={newSession} switchSession={switchSession}
             deleteSession={deleteSession} renameSession={renameSession}
