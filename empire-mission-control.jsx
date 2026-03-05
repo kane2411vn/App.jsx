@@ -1180,6 +1180,73 @@ export default function App() {
     setTimeout(() => debateRef.current?.scrollIntoView({ behavior:"smooth" }), 200);
   };
 
+  // ── Export Council Minutes PDF ───────────────────────────────────────────
+  const exportCouncilPDF = () => {
+    if (!cMsgs.length) return;
+    const now    = new Date();
+    const dateStr = now.toLocaleDateString("vi-VN", { weekday:"long", year:"numeric", month:"long", day:"numeric" });
+    const timeStr = now.toLocaleTimeString("vi-VN", { hour:"2-digit", minute:"2-digit" });
+    const panelNames = panel.map(id => { const a = AGENTS.find(x => x.id === id); return a ? `${a.icon} ${a.n}` : id; }).join(" · ");
+
+    const rows = cMsgs.map((m, i) => {
+      const isU = m.role === "user";
+      const bg  = isU ? "#1a2035" : "#0f1520";
+      const col = isU ? "#E8C547" : (AGENTS.find(a=>a.id===m.aid)?.col || "#A78BFA");
+      const who = isU ? "👤 Bạn" : (m.label || "🏛️ Hội Đồng");
+      const txt = m.content.split("<").join("&lt;").split(">").join("&gt;").split("\n").join("<br>");
+      return `
+        <div style="margin-bottom:16px;padding:14px 18px;background:${bg};border-radius:8px;border-left:3px solid ${col}">
+          <div style="font-size:10px;color:${col};font-family:monospace;margin-bottom:6px;letter-spacing:1px;text-transform:uppercase">${who} · ${i===0?"Câu hỏi "+(Math.floor(i/2)+1):"Phản hồi "+(Math.floor(i/2)+1)}</div>
+          <div style="font-size:13px;color:#D1CCB8;line-height:1.8">${txt}</div>
+        </div>`;
+    }).join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Council Minutes — ${dateStr}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono&family=Syne:wght@400;700;800&display=swap');
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:#080B12; color:#D1CCB8; font-family:'Syne',sans-serif; padding:40px; max-width:780px; margin:0 auto; }
+    @media print {
+      body { background:#fff!important; color:#111!important; padding:20px; }
+      .no-print { display:none; }
+      div[style*="background:#"] { background:#f8f8f8!important; border-left-color:#666!important; }
+    }
+  </style>
+</head>
+<body>
+  <div style="border-bottom:1px solid #1E2533;padding-bottom:20px;margin-bottom:28px">
+    <div style="font-family:'Space Mono',monospace;font-size:8px;color:#4A5568;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px">Empire Mission Control · Council Minutes</div>
+    <div style="font-size:24px;font-weight:800;color:#E8C547;margin-bottom:8px">📋 Biên Bản Hội Đồng</div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap">
+      <div><span style="font-family:'Space Mono',monospace;font-size:9px;color:#6B7280">NGÀY · GIỜ</span><br><span style="font-size:12px;color:#D1CCB8">${dateStr} · ${timeStr}</span></div>
+      <div><span style="font-family:'Space Mono',monospace;font-size:9px;color:#6B7280">HỘI ĐỒNG</span><br><span style="font-size:12px;color:#D1CCB8">${panelNames}</span></div>
+      <div><span style="font-family:'Space Mono',monospace;font-size:9px;color:#6B7280">SỐ LƯỢT</span><br><span style="font-size:12px;color:#D1CCB8">${cMsgs.filter(m=>m.role==="user").length} câu hỏi · ${cMsgs.filter(m=>m.role==="assistant").length} phản hồi</span></div>
+    </div>
+  </div>
+  <div>${rows}</div>
+  <div style="margin-top:28px;padding-top:16px;border-top:1px solid #1E2533;font-family:'Space Mono',monospace;font-size:9px;color:#4A5568;text-align:center">
+    Empire Mission Control · Xuất lúc ${timeStr} · ${dateStr}
+  </div>
+  <div class="no-print" style="margin-top:24px;text-align:center">
+    <button onclick="window.print()" style="padding:10px 28px;background:rgba(232,197,71,0.15);border:1px solid rgba(232,197,71,0.4);border-radius:6px;color:#E8C547;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:1px">🖨️ IN / LƯU PDF</button>
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: "text/html" });
+    const url  = URL.createObjectURL(blob);
+    const win  = window.open(url, "_blank");
+    if (win) {
+      win.onload = () => {
+        setTimeout(() => { try { win.print(); } catch{} }, 500);
+      };
+    }
+  };
+
   // ── Council (always heavy) ────────────────────────────────────────────────
   const mkCouncilSys = () => {
     const names = panel.map(id => { const a = AGENTS.find(x => x.id === id); return `${a.icon} ${a.n}`; }).join(", ");
@@ -1395,6 +1462,7 @@ export default function App() {
                 </span>
                 <button onClick={()=>setShowGrid(p=>!p)} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer"}}>{showGrid?"▲ Ẩn":"▼ 42 Agents"}</button>
                 {cMsgs.length>0&&<button onClick={()=>setCMsgs([])} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer"}}>XÓA</button>}
+                {cMsgs.length>0&&<button onClick={exportCouncilPDF} style={{fontFamily:FM,fontSize:"9px",color:C.gold,background:C.gD,border:`1px solid ${C.gold}30`,padding:"4px 11px",borderRadius:4,cursor:"pointer",letterSpacing:"0.5px"}}>📋 MINUTES</button>}
                 <button onClick={()=>{setDebateMode(p=>!p);setCompareMode(false);}}
                   style={{fontFamily:FM,fontSize:"9px",color:debateMode?"#F87171":C.mu,background:debateMode?"rgba(248,113,113,0.1)":"transparent",border:`1px solid ${debateMode?"#F87171":C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer",letterSpacing:"0.5px"}}>
                   ⚔️ Debate
