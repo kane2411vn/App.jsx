@@ -1160,10 +1160,8 @@ export default function App() {
     if (patternBusy || mems.length < 3) return;
     setPatternBusy(true); setPatternRes("");
     try {
-      const memSample = mems.slice(-50).map(m => `[${m.tag}] ${m.text.slice(0,100)}`).join("
-");
-      const decSample = decisions.slice(-20).map(d => `[${d.status}] ${d.title}: ${d.context.slice(0,80)}`).join("
-");
+      const memSample = mems.slice(-50).map(m => `[${m.tag}] ${m.text.slice(0,100)}`).join("\n");
+      const decSample = decisions.slice(-20).map(d => `[${d.status}] ${d.title}: ${d.context.slice(0,80)}`).join("\n");
       const sys = "Bạn là chuyên gia phân tích hành vi và tư duy. Phân tích ngắn gọn, sắc bén. Tiếng Việt.";
       const prompt = `Phân tích ${mems.length} memories và ${decisions.length} decisions sau:
 
@@ -1212,12 +1210,10 @@ Ngắn gọn, mỗi điểm 1-2 câu.`;
 - Top agents: ${topAgents||"chưa có"}
 
 Memories mới:
-${weekMems.slice(-10).map(m=>`• [${m.tag}] ${m.text.slice(0,80)}`).join("
-")||"Chưa có"}
+${weekMems.slice(-10).map(m=>`• [${m.tag}] ${m.text.slice(0,80)}`).join("\n")||"Chưa có"}
 
 Decisions:
-${weekDecs.map(d=>`• [${d.status}] ${d.title}`).join("
-")||"Chưa có"}
+${weekDecs.map(d=>`• [${d.status}] ${d.title}`).join("\n")||"Chưa có"}
 
 Viết WEEKLY REPORT ngắn gọn gồm: 1) Tóm tắt tuần (2-3 câu) 2) Điểm nổi bật 3) Cần cải thiện 4) Focus tuần tới`;
       const prov = apiKeys.openrouter ? "openrouter" : "claude";
@@ -1302,8 +1298,7 @@ Hãy tóm tắt ngắn gọn những insight quan trọng nhất từ cuộc coa
         const prov = apiKeys.openrouter ? "openrouter" : "claude";
         const mod  = apiKeys.openrouter ? (providerModels.openrouter||"anthropic/claude-sonnet-4-5") : (providerModels.claude||PROVIDERS.claude.defaultModel);
         const summary = await callAI(sys, hist, "Tóm tắt coaching session", prov, mod);
-        setHotSeatMsgs(p=>[...p, { role:"assistant", content:"🎯 **Tóm tắt coaching:**
-"+summary, agentName:ag.n, agentCol:ag.col, agentIcon:ag.icon, isSummary:true }]);
+        setHotSeatMsgs(p=>[...p, { role:"assistant", content:"🎯 **Tóm tắt coaching:**\n"+summary, agentName:ag.n, agentCol:ag.col, agentIcon:ag.icon, isSummary:true }]);
       } catch(e) {}
       setHotSeatBusy(false);
       return;
