@@ -982,12 +982,7 @@ function ChatTab({ sessions, activeSessId, sessMessages, sessReady, sidebarOpen,
                   placeholder="Tiêu đề tài liệu (vd: Nguyên tắc 1 - Không chỉ trích)"
                   style={{width:"100%",boxSizing:"border-box",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:7,padding:"9px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none",marginBottom:8}}/>
                 <textarea value={kbInput} onChange={e=>setKbInput(e.target.value)}
-                  placeholder={"Paste nội dung tài liệu, insight từ sách, notes cá nhân...
-
-Ví dụ:
-- Nguyên tắc: Không bao giờ chỉ trích, lên án hay than phiền
-- Lý do: Con người không bị thúc đẩy bởi logic mà bởi cảm xúc và tự ái
-- Ứng dụng: Thay vì nói 'anh sai', hãy hỏi 'anh nghĩ sao nếu...'"}
+                  placeholder={"Paste nội dung tài liệu, insight từ sách, notes cá nhân...\n\nVí dụ:\n- Nguyên tắc: Không bao giờ chỉ trích, lên án hay than phiền\n- Lý do: Con người không bị thúc đẩy bởi logic mà bởi cảm xúc và tự ái\n- Ứng dụng: Thay vì nói 'anh sai', hãy hỏi 'anh nghĩ sao nếu...'"}
                   rows={8}
                   style={{width:"100%",boxSizing:"border-box",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:7,padding:"9px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none",resize:"vertical",marginBottom:10}}/>
                 <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
@@ -2773,12 +2768,7 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
                   placeholder="Tiêu đề tài liệu (vd: Nguyên tắc 1 - Không chỉ trích)"
                   style={{width:"100%",boxSizing:"border-box",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:7,padding:"9px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none",marginBottom:8}}/>
                 <textarea value={kbInput} onChange={e=>setKbInput(e.target.value)}
-                  placeholder={"Paste nội dung tài liệu, insight từ sách, notes cá nhân...
-
-Ví dụ:
-- Nguyên tắc: Không bao giờ chỉ trích, lên án hay than phiền
-- Lý do: Con người không bị thúc đẩy bởi logic mà bởi cảm xúc và tự ái
-- Ứng dụng: Thay vì nói 'anh sai', hãy hỏi 'anh nghĩ sao nếu...'"}
+                  placeholder={"Paste nội dung tài liệu, insight từ sách, notes cá nhân...\n\nVí dụ:\n- Nguyên tắc: Không bao giờ chỉ trích, lên án hay than phiền\n- Lý do: Con người không bị thúc đẩy bởi logic mà bởi cảm xúc và tự ái\n- Ứng dụng: Thay vì nói 'anh sai', hãy hỏi 'anh nghĩ sao nếu...'"}
                   rows={8}
                   style={{width:"100%",boxSizing:"border-box",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:7,padding:"9px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none",resize:"vertical",marginBottom:10}}/>
                 <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
