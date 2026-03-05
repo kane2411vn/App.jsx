@@ -952,109 +952,6 @@ function ChatTab({ sessions, activeSessId, sessMessages, sessReady, sidebarOpen,
           </div>
         )}
         {/* ════ KNOWLEDGE BASE ════ */}
-        {tab==="knowledge"&&(
-          <div style={{flex:1,display:"flex",flexDirection:"column",maxWidth:960,width:"100%",margin:"0 auto",padding:"0 20px",boxSizing:"border-box",overflowY:"auto"}}>
-            <div style={{padding:"16px 0 10px",flexShrink:0}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:14}}>
-                <div>
-                  <p style={{fontFamily:FM,fontSize:"9px",color:"#F59E0B",letterSpacing:"2px",margin:"0 0 3px"}}>📚 KNOWLEDGE BASE</p>
-                  <p style={{fontSize:13,color:C.txt,margin:0}}>Tài liệu bổ sung cho từng Agent — Agent sẽ tự động học khi trả lời</p>
-                </div>
-                <div style={{display:"flex",gap:6}}>
-                  <button onClick={()=>setKbView("browse")} style={{fontFamily:FM,fontSize:"9px",padding:"5px 14px",borderRadius:5,cursor:"pointer",background:kbView==="browse"?"rgba(245,158,11,0.15)":"transparent",border:`1px solid ${kbView==="browse"?"#F59E0B":C.bd}`,color:kbView==="browse"?"#F59E0B":C.mu}}>📖 Xem</button>
-                  <button onClick={()=>setKbView("add")} style={{fontFamily:FM,fontSize:"9px",padding:"5px 14px",borderRadius:5,cursor:"pointer",background:kbView==="add"?"rgba(245,158,11,0.15)":"transparent",border:`1px solid ${kbView==="add"?"#F59E0B":C.bd}`,color:kbView==="add"?"#F59E0B":C.mu}}>➕ Thêm</button>
-                  <button onClick={()=>{setKbView("add");setKbAddMode("url");}} style={{fontFamily:FM,fontSize:"9px",padding:"5px 14px",borderRadius:5,cursor:"pointer",background:kbView==="add"&&kbAddMode==="url"?"rgba(59,130,246,0.15)":"transparent",border:`1px solid ${kbView==="add"&&kbAddMode==="url"?"#3B82F6":C.bd}`,color:kbView==="add"&&kbAddMode==="url"?"#3B82F6":C.mu}}>🔗 Import URL</button>
-                </div>
-              </div>
-
-              {/* Agent selector */}
-              <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:12}}>
-                {AGENTS.filter(a=>a.tier==="S"||a.tier==="A").map(a=>{
-                  const count = kb[a.id]?.length||0;
-                  const sel = kbAgent===a.id;
-                  return(
-                    <button key={a.id} onClick={()=>setKbAgent(a.id)}
-                      style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:sel?`${a.col}14`:"transparent",border:`1px solid ${sel?a.col:C.bd}`,borderRadius:6,cursor:"pointer",position:"relative"}}>
-                      <span style={{fontSize:11}}>{a.icon}</span>
-                      <span style={{fontFamily:FM,fontSize:"9px",color:sel?a.col:C.mu}}>{a.n}</span>
-                      {count>0&&<span style={{fontFamily:FM,fontSize:"8px",background:`${a.col}22`,color:a.col,padding:"0 5px",borderRadius:8}}>{count}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* ADD VIEW */}
-            {kbView==="add"&&(
-              <div style={{background:"rgba(245,158,11,0.05)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:10,padding:"16px 18px",marginBottom:14,flexShrink:0}}>
-                <p style={{fontFamily:FM,fontSize:"9px",color:"#F59E0B",letterSpacing:"2px",margin:"0 0 12px"}}>
-                  THÊM TÀI LIỆU CHO {AGENTS.find(a=>a.id===kbAgent)?.n?.toUpperCase()||kbAgent.toUpperCase()}
-                </p>
-                <input value={kbTitle} onChange={e=>setKbTitle(e.target.value)}
-                  placeholder="Tiêu đề tài liệu (vd: Nguyên tắc 1 - Không chỉ trích)"
-                  style={{width:"100%",boxSizing:"border-box",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:7,padding:"9px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none",marginBottom:8}}/>
-                <textarea value={kbInput} onChange={e=>setKbInput(e.target.value)}
-                  placeholder={"Paste nội dung tài liệu, insight từ sách, notes cá nhân...\n\nVí dụ:\n- Nguyên tắc: Không bao giờ chỉ trích, lên án hay than phiền\n- Lý do: Con người không bị thúc đẩy bởi logic mà bởi cảm xúc và tự ái\n- Ứng dụng: Thay vì nói 'anh sai', hãy hỏi 'anh nghĩ sao nếu...'"}
-                  rows={8}
-                  style={{width:"100%",boxSizing:"border-box",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:7,padding:"9px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none",resize:"vertical",marginBottom:10}}/>
-                <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                  <button onClick={()=>{setKbTitle("");setKbInput("");}}
-                    style={{fontFamily:FM,fontSize:"9px",padding:"6px 14px",borderRadius:5,cursor:"pointer",background:"transparent",border:`1px solid ${C.bd}`,color:C.mu}}>Xóa</button>
-                  <button onClick={()=>{
-                    if(!kbTitle.trim()||!kbInput.trim()) return;
-                    const entry = { id: Date.now().toString(), title: kbTitle.trim(), content: kbInput.trim(), ts: Date.now(), agentId: kbAgent };
-                    const updated = { ...kb, [kbAgent]: [...(kb[kbAgent]||[]), entry] };
-                    saveKb(updated);
-                    setKbTitle(""); setKbInput(""); setKbView("browse");
-                  }}
-                    style={{fontFamily:FM,fontSize:"9px",padding:"6px 16px",borderRadius:5,cursor:"pointer",background:"rgba(245,158,11,0.15)",border:"1px solid rgba(245,158,11,0.4)",color:"#F59E0B",fontWeight:700}}>
-                    💾 LƯU TÀI LIỆU
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* BROWSE VIEW */}
-            {kbView==="browse"&&(()=>{
-              const agDocs = kb[kbAgent]||[];
-              const agent  = AGENTS.find(a=>a.id===kbAgent);
-              return(
-                <div style={{flex:1}}>
-                  {agDocs.length===0?(
-                    <div style={{textAlign:"center",padding:"40px 20px",background:C.s1,borderRadius:10,border:`1px dashed ${C.bd}`}}>
-                      <p style={{fontSize:28,margin:"0 0 8px"}}>{agent?.icon||"📚"}</p>
-                      <p style={{fontSize:13,color:C.mu,margin:"0 0 12px"}}>{agent?.n} chưa có tài liệu nào.</p>
-                      <button onClick={()=>setKbView("add")}
-                        style={{fontFamily:FM,fontSize:"9px",padding:"6px 16px",borderRadius:5,cursor:"pointer",background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.3)",color:"#F59E0B"}}>
-                        ➕ Thêm tài liệu đầu tiên
-                      </button>
-                    </div>
-                  ):(
-                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                      <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:"0 0 4px"}}>{agDocs.length} TÀI LIỆU · {agent?.n} sẽ tự động tham chiếu khi trả lời</p>
-                      {agDocs.map((doc,i)=>(
-                        <div key={doc.id} style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:9,padding:"12px 14px"}}>
-                          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:6}}>
-                            <div style={{display:"flex",alignItems:"center",gap:8}}>
-                              <span style={{fontFamily:FM,fontSize:"8px",color:"#F59E0B",background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.2)",padding:"1px 7px",borderRadius:3}}>#{i+1}</span>
-                              <p style={{fontSize:13,fontWeight:600,color:C.txt,margin:0}}>{doc.title}</p>
-                            </div>
-                            <button onClick={()=>{
-                              const updated = {...kb, [kbAgent]:(kb[kbAgent]||[]).filter(d=>d.id!==doc.id)};
-                              saveKb(updated);
-                            }} style={{background:"none",border:"none",color:C.mu,cursor:"pointer",fontSize:13,flexShrink:0,padding:"0 2px"}}>×</button>
-                          </div>
-                          <p style={{fontSize:12,color:C.fa,margin:0,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{doc.content.slice(0,300)}{doc.content.length>300?"...":""}</p>
-                          <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"6px 0 0"}}>{new Date(doc.ts).toLocaleDateString("vi-VN")}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-        )}
 
       </div>
     </div>
@@ -1162,6 +1059,10 @@ export default function App() {
   const [briefing,       setBriefing]       = useState(() => { try { const b=JSON.parse(localStorage.getItem("empire_briefing")||"null"); return b; } catch { return null; } });
   const [briefingBusy,   setBriefingBusy]   = useState(false);
   const [briefingDate,   setBriefingDate]   = useState("");
+  // Agent Memory
+  const [agentMems,      setAgentMems]      = useState(() => { try { return JSON.parse(localStorage.getItem("empire_agent_mems")||"{}"); } catch { return {}; } });
+  const [autoMemory,     setAutoMemory]     = useState(() => { try { return JSON.parse(localStorage.getItem("empire_auto_mem")||"true"); } catch { return true; } });
+  const saveAgentMems = (updated) => { setAgentMems(updated); try { localStorage.setItem("empire_agent_mems", JSON.stringify(updated)); } catch {}; };
   // Web Search
   const [webSearchEnabled, setWebSearchEnabled] = useState(() => {
     try { return JSON.parse(localStorage.getItem("empire_websearch")||"false"); } catch { return false; }
@@ -1777,10 +1678,17 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
   // ── Knowledge Base system prompt builder ────────────────────────────────
   const buildAgentSys = (ag) => {
     let sys = ag.prompt || "";
+    // Inject Knowledge Base docs
     const agKb = kb[ag.id];
     if (agKb && agKb.length > 0) {
       const docs = agKb.map((d,i) => "[" + (i+1) + "] " + d.title + ":\n" + d.content.slice(0,600)).join("\n\n");
       sys += "\n\n--- TÀI LIỆU BỔ SUNG (tham chiếu khi liên quan) ---\n" + docs + "\n---";
+    }
+    // Inject Agent Memory (long-term memory about this user)
+    const aMems = agentMems[ag.id];
+    if (aMems && aMems.length > 0) {
+      const memLines = aMems.slice(-20).map((m,i) => (i+1) + ". " + m.text).join("\n");
+      sys += "\n\n--- KÝ ỨC VỀ NGƯỜI DÙNG (đã học từ các cuộc trò chuyện trước) ---\n" + memLines + "\n--- Dùng thông tin này để cá nhân hóa câu trả lời ---";
     }
     return sys;
   };
@@ -1817,6 +1725,8 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
       const finalMsgs = [...nextMsgs, botMsg];
       sessUpdateCache(sid, finalMsgs);
       sessUpdateIndex(sid, { updatedAt: Date.now(), msgCount: finalMsgs.length });
+      // Auto-extract memories in background (non-blocking)
+      if (autoMemory) extractMemory(activeAg.id, txt, reply);
     } catch (e) {
       const errMsgs = [...nextMsgs, { role: "assistant", content: `⚠️ ${e.message||"Lỗi kết nối."}`, label:"System", aid:"" }];
       sessUpdateCache(sid, errMsgs);
@@ -1832,6 +1742,55 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
     setMemIn("");
   };
   const delMem = (id) => { setMems(prev => { const u = prev.filter(m => m.id !== id); saveMems(u); return u; }); };
+
+  // ── Agent Memory: auto-extract insights after each chat ──────────────────
+  const extractMemory = async (agId, userMsg, agentReply) => {
+    if (!autoMemory) return;
+    try {
+      const prov = apiKeys.openrouter ? "openrouter" : "claude";
+      const mod  = providerModels[prov] || (prov==="openrouter"?"anthropic/claude-sonnet-4-5":PROVIDERS.claude.defaultModel);
+      const sys  = "Bạn là memory extractor. Đọc cuộc trò chuyện và extract NHỮNG THÔNG TIN QUAN TRỌNG về người dùng cần nhớ lâu dài: goals, preferences, decisions, key facts, patterns. Bỏ qua nội dung tầm thường. Format: JSON array [{\"mem\": \"fact to remember\", \"importance\": 1-3}]. Chỉ trả về JSON, không giải thích.";
+      const msg  = "User said: " + userMsg.slice(0,300) + "\nAgent replied: " + agentReply.slice(0,300) + "\n\nExtract important memories. Return [] if nothing important.";
+      const key  = apiKeys.openrouter || apiKeys.claude;
+      if (!key) return;
+      const headers = {"Content-Type":"application/json","Authorization":"Bearer "+key};
+      if (prov==="openrouter") { headers["HTTP-Referer"]="https://empire.kgt.life"; headers["X-Title"]="Empire Council"; }
+      const r = await fetch(
+        prov==="openrouter" ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.anthropic.com/v1/messages",
+        { method:"POST", headers, body: JSON.stringify(
+          prov==="openrouter"
+            ? { model:mod, max_tokens:300, messages:[{role:"system",content:sys},{role:"user",content:msg}] }
+            : { model:mod, max_tokens:300, system:sys, messages:[{role:"user",content:msg}] }
+        )}
+      );
+      const d = await r.json();
+      const raw = prov==="openrouter" ? d?.choices?.[0]?.message?.content : d?.content?.[0]?.text;
+      if (!raw) return;
+      const clean = raw.replace(/```json|```/g,"").trim();
+      const extracted = JSON.parse(clean);
+      if (!Array.isArray(extracted) || extracted.length===0) return;
+      const newMems = extracted
+        .filter(e => e.mem && e.importance >= 2)
+        .map(e => ({ id: Date.now().toString()+Math.random().toString(36).slice(2), text: e.mem, importance: e.importance, agentId: agId, ts: Date.now(), src: "auto" }));
+      if (newMems.length === 0) return;
+      const cur = agentMems[agId] || [];
+      // Deduplicate: skip if similar memory already exists
+      const deduped = newMems.filter(nm => !cur.some(cm => cm.text.toLowerCase().includes(nm.text.toLowerCase().slice(0,20))));
+      if (deduped.length === 0) return;
+      const updated = { ...agentMems, [agId]: [...cur, ...deduped].slice(-50) }; // max 50 per agent
+      saveAgentMems(updated);
+      // Also add important ones (importance=3) to global mems
+      deduped.filter(m=>m.importance===3).forEach(m => {
+        const globalMem = { id: m.id, text: "["+agId+"] "+m.text, tag: "auto", ts: m.ts, src: "auto" };
+        setMems(prev => { const u = [...prev, globalMem].slice(-200); saveMems(u); return u; });
+      });
+    } catch(e) { /* silent fail */ }
+  };
+
+  const delAgentMem = (agId, memId) => {
+    const updated = { ...agentMems, [agId]: (agentMems[agId]||[]).filter(m=>m.id!==memId) };
+    saveAgentMems(updated);
+  };
 
   // ── Schedule helpers ──────────────────────────────────────────────────────
   const nowMin = () => { const n = new Date(); return n.getHours()*60+n.getMinutes(); };
@@ -2232,6 +2191,47 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
         {/* ════ MEMORY ════ */}
         {tab==="memory"&&(
           <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:"14px 20px 40px",boxSizing:"border-box"}}>
+
+            {/* ── AGENT LONG-TERM MEMORY ── */}
+            <div style={{background:"rgba(245,158,11,0.05)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <div>
+                  <p style={{fontFamily:FM,fontSize:"9px",color:"#F59E0B",letterSpacing:"2px",margin:"0 0 3px"}}>🧠 AGENT LONG-TERM MEMORY</p>
+                  <p style={{fontSize:12,color:C.mu,margin:0}}>Ký ức học tự động từ chat · {Object.values(agentMems).reduce((s,a)=>s+(a?.length||0),0)} memories</p>
+                </div>
+                <button onClick={()=>setAutoMemory(p=>{const n=!p;try{localStorage.setItem("empire_auto_mem",JSON.stringify(n))}catch{}return n;})}
+                  style={{fontFamily:FM,fontSize:"9px",padding:"5px 12px",borderRadius:5,cursor:"pointer",background:autoMemory?"rgba(245,158,11,0.12)":"transparent",border:`1px solid ${autoMemory?"#F59E0B":C.bd}`,color:autoMemory?"#F59E0B":C.mu}}>
+                  {autoMemory?"🟡 AUTO ON":"⚫ AUTO OFF"}
+                </button>
+              </div>
+              <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>
+                {AGENTS.filter(a=>agentMems[a.id]?.length>0).map(ag=>(
+                  <div key={ag.id} style={{display:"flex",alignItems:"center",gap:4,padding:"3px 10px",background:`${ag.col}10`,border:`1px solid ${ag.col}30`,borderRadius:5}}>
+                    <span style={{fontSize:10}}>{ag.icon}</span>
+                    <span style={{fontFamily:FM,fontSize:"8px",color:ag.col}}>{ag.n}</span>
+                    <span style={{fontFamily:FM,fontSize:"8px",background:`${ag.col}20`,color:ag.col,padding:"0 4px",borderRadius:3}}>{agentMems[ag.id].length}</span>
+                  </div>
+                ))}
+                {Object.values(agentMems).every(a=>!a?.length)&&(
+                  <p style={{fontSize:11,color:C.mu,margin:0}}>Chưa có ký ức nào. Chat với agents để bắt đầu học.</p>
+                )}
+              </div>
+              {AGENTS.filter(a=>agentMems[a.id]?.length>0).slice(0,3).map(ag=>(
+                <div key={ag.id} style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:8,padding:"10px 14px",marginBottom:8}}>
+                  <p style={{fontFamily:FM,fontSize:"9px",color:ag.col,margin:"0 0 8px"}}>{ag.icon} {ag.n.toUpperCase()} · {agentMems[ag.id].length} memories</p>
+                  {agentMems[ag.id].slice(-5).map(m=>(
+                    <div key={m.id} style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:4}}>
+                      <div style={{display:"flex",gap:6,alignItems:"flex-start"}}>
+                        <span style={{color:m.importance===3?"#F59E0B":"#60A5FA",fontSize:9,flexShrink:0,marginTop:3}}>{m.importance===3?"⭐":"●"}</span>
+                        <p style={{fontSize:11,color:C.fa,margin:0,lineHeight:1.6}}>{m.text}</p>
+                      </div>
+                      <button onClick={()=>delAgentMem(ag.id,m.id)} style={{background:"none",border:"none",color:C.mu,cursor:"pointer",fontSize:11,flexShrink:0}}>×</button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
             <div style={{background:C.purD,border:`1px solid ${C.pur}20`,borderRadius:10,padding:"14px 18px",marginBottom:16}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
                 <div>
