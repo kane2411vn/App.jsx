@@ -1,205 +1,134 @@
-// ─── EMPIRE COUNCIL — TELEGRAM BOT ──────────────────────────────────────────
-// Deploy: node empire-bot.js
-// Requires: TELEGRAM_TOKEN và OPENROUTER_KEY trong environment
+#!/usr/bin/env node
+// Empire Council — Auto Daily Briefing
+// Chạy mỗi sáng 7h: gửi briefing từ 6 cố vấn qua Telegram
+// Cron: 0 7 * * * /usr/bin/node /home/deploy/empire-briefing.js >> /var/log/empire-briefing.log 2>&1
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const OPENROUTER_KEY = process.env.OPENROUTER_KEY;
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "anthropic/claude-sonnet-4-5";
+const CHAT_ID        = process.env.TELEGRAM_CHAT_ID; // ID của bạn
 
-if (!TELEGRAM_TOKEN || !OPENROUTER_KEY) {
-  console.error("❌ Thiếu TELEGRAM_TOKEN hoặc OPENROUTER_KEY");
+if (!TELEGRAM_TOKEN || !OPENROUTER_KEY || !CHAT_ID) {
+  console.error("❌ Thiếu env vars: TELEGRAM_TOKEN, OPENROUTER_KEY, TELEGRAM_CHAT_ID");
   process.exit(1);
 }
 
-// ─── AGENTS ──────────────────────────────────────────────────────────────────
-const AGENTS = {
-  carnegie:   { name: "Carnegie",    icon: "🤝", prompt: "Bạn là Dale Carnegie — chuyên gia về quan hệ con người, giao tiếp, thuyết phục. Tư vấn ngắn gọn, thực tế. Tiếng Việt. Không dùng markdown." },
-  jobs:       { name: "Steve Jobs",  icon: "🍎", prompt: "Bạn là Steve Jobs — tầm nhìn sản phẩm, design thinking, 'think different'. Tư vấn ngắn gọn. Tiếng Việt. Không dùng markdown." },
-  buffett:    { name: "Buffett",     icon: "💰", prompt: "Bạn là Warren Buffett — value investing, tư duy dài hạn, kiên nhẫn. Tư vấn ngắn gọn. Tiếng Việt. Không dùng markdown." },
-  naval:      { name: "Naval",       icon: "🧘", prompt: "Bạn là Naval Ravikant — specific knowledge, leverage, wealth creation. Súc tích như aphorism. Tiếng Việt. Không dùng markdown." },
-  aristotle:  { name: "Aristotle",   icon: "🏛️", prompt: "Bạn là Aristotle — logic, ethics, first principles. Tư vấn ngắn gọn. Tiếng Việt. Không dùng markdown." },
-  dalio:      { name: "Ray Dalio",   icon: "📊", prompt: "Bạn là Ray Dalio — principles, macro thinking, radical transparency. Tư vấn ngắn gọn. Tiếng Việt. Không dùng markdown." },
-  sun_tzu:    { name: "Sun Tzu",     icon: "⚔️", prompt: "Bạn là Tôn Tử — chiến lược, biết người biết ta, thắng trước khi đánh. Tư vấn ngắn gọn. Tiếng Việt. Không dùng markdown." },
-  graham_p:   { name: "Paul Graham", icon: "🔶", prompt: "Bạn là Paul Graham — startup thinking, founder mindset, YC wisdom. Tư vấn ngắn gọn. Tiếng Việt. Không dùng markdown." },
-};
+const MODEL = "anthropic/claude-sonnet-4-5";
+const BASE  = "https://openrouter.ai/api/v1/chat/completions";
 
-const COUNCIL_AGENTS = ["carnegie", "jobs", "buffett", "naval", "aristotle", "dalio"];
+const AGENTS = [
+  { id: "carnegie",  icon: "🤝", name: "Carnegie",   role: "human relations",
+    sys: "Bạn là Dale Carnegie. Cho 1 insight về quan hệ con người, 1 hành động cụ thể hôm nay, 1 cảnh báo. Ngắn gọn, súc tích." },
+  { id: "jobs",      icon: "🍎", name: "Jobs",        role: "product vision",
+    sys: "Bạn là Steve Jobs. Cho 1 insight về sản phẩm/tư duy, 1 hành động cụ thể hôm nay, 1 cảnh báo. Ngắn gọn, súc tích." },
+  { id: "buffett",   icon: "💰", name: "Buffett",     role: "long-term thinking",
+    sys: "Bạn là Warren Buffett. Cho 1 insight về đầu tư/tư duy dài hạn, 1 hành động cụ thể hôm nay, 1 cảnh báo. Ngắn gọn, súc tích." },
+  { id: "naval",     icon: "🧘", name: "Naval",       role: "wealth & leverage",
+    sys: "Bạn là Naval Ravikant. Cho 1 insight về wealth/leverage, 1 hành động cụ thể hôm nay, 1 cảnh báo. Ngắn gọn, súc tích." },
+  { id: "sun_tzu",   icon: "⚔️", name: "Sun Tzu",    role: "strategy",
+    sys: "Bạn là Tôn Tử. Cho 1 insight về chiến lược, 1 hành động cụ thể hôm nay, 1 cảnh báo. Ngắn gọn, súc tích." },
+  { id: "dalio",     icon: "📊", name: "Dalio",       role: "principles",
+    sys: "Bạn là Ray Dalio. Cho 1 insight về principles/radical truth, 1 hành động cụ thể hôm nay, 1 cảnh báo. Ngắn gọn, súc tích." },
+];
 
-// ─── OPENROUTER CALL ─────────────────────────────────────────────────────────
-async function callAI(systemPrompt, userMessage) {
-  const res = await fetch(OPENROUTER_URL, {
+async function callAI(sys, userMsg) {
+  const r = await fetch(BASE, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${OPENROUTER_KEY}`,
       "HTTP-Referer": "https://empire.kgt.life",
-      "X-Title": "Empire Mission Control",
+      "X-Title": "Empire Council Briefing",
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 500,
+      max_tokens: 300,
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user",   content: userMessage  },
+        { role: "system", content: sys },
+        { role: "user",   content: userMsg },
       ],
     }),
   });
-  if (!res.ok) throw new Error(`OpenRouter error: ${res.status}`);
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || "Không có phản hồi.";
+  const d = await r.json();
+  if (d?.error) throw new Error(d.error.message);
+  return d?.choices?.[0]?.message?.content || "";
 }
 
-// ─── TELEGRAM SEND ────────────────────────────────────────────────────────────
-async function sendMessage(chatId, text) {
-  const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
-  await fetch(url, {
+async function sendTelegram(text) {
+  const r = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      chat_id: chatId,
-      text: text,
+      chat_id: CHAT_ID,
+      text,
       parse_mode: "HTML",
     }),
   });
+  const d = await r.json();
+  if (!d.ok) throw new Error(`Telegram error: ${d.description}`);
+  return d;
 }
 
-// ─── COMMAND HANDLERS ─────────────────────────────────────────────────────────
-async function handleStart(chatId) {
-  const msg = [
-    "👋 <b>Empire Mission Control Bot</b>",
-    "",
-    "Hỏi 42 cố vấn AI của bạn ngay từ Telegram!",
-    "",
-    "<b>Lệnh:</b>",
-    "/ask [agent] [câu hỏi] — Hỏi 1 agent",
-    "/council [câu hỏi] — Hỏi cả Hội Đồng",
-    "/agents — Danh sách agents",
-    "/help — Xem hướng dẫn",
-    "",
-    "<b>Ví dụ:</b>",
-    "/ask carnegie Tôi nên làm gì hôm nay?",
-    "/council Chiến lược Q2 2026 của tôi?",
-  ].join("\n");
-  await sendMessage(chatId, msg);
-}
+async function main() {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("vi-VN", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric"
+  });
 
-async function handleAgents(chatId) {
-  const lines = ["📋 <b>Danh sách Agents:</b>", ""];
-  for (const [id, ag] of Object.entries(AGENTS)) {
-    lines.push(`${ag.icon} <b>${ag.name}</b> — /ask ${id} [câu hỏi]`);
-  }
-  lines.push("", "🌐 Xem đầy đủ 42 agents tại: https://empire.kgt.life");
-  await sendMessage(chatId, lines.join("\n"));
-}
+  console.log(`[${new Date().toISOString()}] Generating briefing for ${dateStr}...`);
 
-async function handleAsk(chatId, agentId, question) {
-  const agent = AGENTS[agentId];
-  if (!agent) {
-    await sendMessage(chatId, `❌ Không tìm thấy agent <b>${agentId}</b>.\nDùng /agents để xem danh sách.`);
-    return;
-  }
-  if (!question.trim()) {
-    await sendMessage(chatId, `❓ Bạn chưa nhập câu hỏi!\nVí dụ: /ask ${agentId} Tôi nên làm gì hôm nay?`);
-    return;
-  }
-  await sendMessage(chatId, `${agent.icon} <i>${agent.name} đang suy nghĩ...</i>`);
-  try {
-    const reply = await callAI(agent.prompt, question);
-    await sendMessage(chatId, `${agent.icon} <b>${agent.name}:</b>\n\n${reply}`);
-  } catch (e) {
-    await sendMessage(chatId, `⚠️ Lỗi: ${e.message}`);
-  }
-}
+  // Header message
+  await sendTelegram(
+    `⚡ <b>EMPIRE COUNCIL — DAILY BRIEFING</b>\n` +
+    `📅 ${dateStr}\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `Đang tổng hợp insights từ 6 cố vấn...`
+  );
 
-async function handleCouncil(chatId, question) {
-  if (!question.trim()) {
-    await sendMessage(chatId, "❓ Bạn chưa nhập câu hỏi!\nVí dụ: /council Chiến lược Q2 2026 của tôi?");
-    return;
-  }
-  await sendMessage(chatId, `🏛️ <i>Hội Đồng đang họp...</i>`);
-  const names = COUNCIL_AGENTS.map(id => AGENTS[id].name).join(", ");
-  const sys = `Bạn là hội đồng cố vấn gồm: ${names}. Với mỗi câu hỏi, mỗi cố vấn trả lời ngắn gọn 1-2 câu theo format:\n${COUNCIL_AGENTS.map(id => `${AGENTS[id].icon} ${AGENTS[id].name}:`).join("\n")}\n\nKẾT LUẬN: [1 câu hành động]\n\nTiếng Việt. Không dùng markdown hay **.`;
-  try {
-    const reply = await callAI(sys, question);
-    await sendMessage(chatId, `🏛️ <b>Hội Đồng:</b>\n\n${reply}`);
-  } catch (e) {
-    await sendMessage(chatId, `⚠️ Lỗi: ${e.message}`);
-  }
-}
+  const userMsg = `Hôm nay là ${dateStr}. Hãy cho tôi insight quan trọng nhất, 1 hành động cụ thể nên làm hôm nay, và 1 cảnh báo/rủi ro cần tránh.\n\nFormat:\n💡 INSIGHT: [câu]\n⚡ HÀNH ĐỘNG: [việc cụ thể]\n⚠️ CẢNH BÁO: [rủi ro]\n\nNgắn gọn, súc tích, thực tế. Tiếng Việt.`;
 
-async function handleHelp(chatId) {
-  const msg = [
-    "📖 <b>Hướng dẫn sử dụng:</b>",
-    "",
-    "<b>/start</b> — Chào mừng",
-    "<b>/ask [agent] [câu hỏi]</b> — Hỏi 1 agent cụ thể",
-    "<b>/council [câu hỏi]</b> — Hỏi cả Hội Đồng 6 cố vấn",
-    "<b>/agents</b> — Danh sách tất cả agents",
-    "<b>/help</b> — Xem hướng dẫn này",
-    "",
-    "<b>Agents phổ biến:</b>",
-    "carnegie, jobs, buffett, naval, aristotle, dalio, sun_tzu, graham_p",
-    "",
-    "💡 Tip: Câu hỏi càng cụ thể, câu trả lời càng chất lượng!",
-    "",
-    "🌐 Web: https://empire.kgt.life",
-  ].join("\n");
-  await sendMessage(chatId, msg);
-}
+  const results = [];
 
-// ─── PROCESS UPDATE ───────────────────────────────────────────────────────────
-async function processUpdate(update) {
-  const msg = update.message || update.edited_message;
-  if (!msg || !msg.text) return;
+  // Get insights from each agent
+  for (const ag of AGENTS) {
+    try {
+      console.log(`  Asking ${ag.name}...`);
+      const reply = await callAI(ag.sys, userMsg);
+      results.push({ ...ag, reply });
 
-  const chatId = msg.chat.id;
-  const text   = msg.text.trim();
-  const parts  = text.split(" ");
-  const cmd    = parts[0].toLowerCase().split("@")[0]; // handle /cmd@botname
-
-  console.log(`[${new Date().toISOString()}] ${chatId}: ${text.slice(0, 80)}`);
-
-  if (cmd === "/start") {
-    await handleStart(chatId);
-  } else if (cmd === "/agents") {
-    await handleAgents(chatId);
-  } else if (cmd === "/help") {
-    await handleHelp(chatId);
-  } else if (cmd === "/ask") {
-    const agentId = parts[1]?.toLowerCase();
-    const question = parts.slice(2).join(" ");
-    await handleAsk(chatId, agentId, question);
-  } else if (cmd === "/council") {
-    const question = parts.slice(1).join(" ");
-    await handleCouncil(chatId, question);
-  } else if (!text.startsWith("/")) {
-    // Free text → ask council
-    await handleCouncil(chatId, text);
-  }
-}
-
-// ─── POLLING LOOP ─────────────────────────────────────────────────────────────
-let offset = 0;
-async function poll() {
-  try {
-    const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/getUpdates?offset=${offset}&timeout=30`;
-    const res  = await fetch(url);
-    const data = await res.json();
-    if (data.ok && data.result.length > 0) {
-      for (const update of data.result) {
-        offset = update.update_id + 1;
-        processUpdate(update).catch(e => console.error("Handler error:", e.message));
-      }
+      const msg =
+        `${ag.icon} <b>${ag.name.toUpperCase()}</b> <i>(${ag.role})</i>\n` +
+        reply.trim();
+      await sendTelegram(msg);
+      await new Promise(r => setTimeout(r, 800)); // rate limit
+    } catch (e) {
+      console.error(`  Error with ${ag.name}:`, e.message);
     }
-  } catch (e) {
-    console.error("Poll error:", e.message);
-    await new Promise(r => setTimeout(r, 5000));
   }
-  setTimeout(poll, 100);
+
+  // Generate synthesis
+  try {
+    console.log("  Generating synthesis...");
+    const allInsights = results.map(r => `${r.name}: ${r.reply}`).join("\n\n");
+    const synthesis = await callAI(
+      "Bạn là synthesis AI. Đọc insights từ hội đồng, tổng hợp ra 3 VIỆC ƯU TIÊN nhất hôm nay theo thứ tự quan trọng. Mỗi việc 1 câu ngắn. Tiếng Việt.",
+      `Insights từ hội đồng:\n${allInsights}\n\nCho ra 3 việc ưu tiên hôm nay.`
+    );
+
+    await sendTelegram(
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🎯 <b>3 VIỆC ƯU TIÊN HÔM NAY</b>\n\n` +
+      synthesis.trim() + `\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🏛️ <a href="https://empire.kgt.life">empire.kgt.life</a>`
+    );
+  } catch (e) {
+    console.error("  Synthesis error:", e.message);
+  }
+
+  console.log(`[${new Date().toISOString()}] Briefing sent successfully!`);
 }
 
-// ─── START ────────────────────────────────────────────────────────────────────
-console.log("🚀 Empire Council Bot starting...");
-console.log(`📡 Model: ${MODEL}`);
-poll().then(() => console.log("✅ Bot is running! Send /start to your bot."));
+main().catch(e => {
+  console.error(`[${new Date().toISOString()}] FATAL:`, e.message);
+  process.exit(1);
+});
