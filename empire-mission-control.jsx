@@ -963,6 +963,7 @@ function ChatTab({ sessions, activeSessId, sessMessages, sessReady, sidebarOpen,
                 <div style={{display:"flex",gap:6}}>
                   <button onClick={()=>setKbView("browse")} style={{fontFamily:FM,fontSize:"9px",padding:"5px 14px",borderRadius:5,cursor:"pointer",background:kbView==="browse"?"rgba(245,158,11,0.15)":"transparent",border:`1px solid ${kbView==="browse"?"#F59E0B":C.bd}`,color:kbView==="browse"?"#F59E0B":C.mu}}>📖 Xem</button>
                   <button onClick={()=>setKbView("add")} style={{fontFamily:FM,fontSize:"9px",padding:"5px 14px",borderRadius:5,cursor:"pointer",background:kbView==="add"?"rgba(245,158,11,0.15)":"transparent",border:`1px solid ${kbView==="add"?"#F59E0B":C.bd}`,color:kbView==="add"?"#F59E0B":C.mu}}>➕ Thêm</button>
+                  <button onClick={()=>{setKbView("add");setKbAddMode("url");}} style={{fontFamily:FM,fontSize:"9px",padding:"5px 14px",borderRadius:5,cursor:"pointer",background:kbView==="add"&&kbAddMode==="url"?"rgba(59,130,246,0.15)":"transparent",border:`1px solid ${kbView==="add"&&kbAddMode==="url"?"#3B82F6":C.bd}`,color:kbView==="add"&&kbAddMode==="url"?"#3B82F6":C.mu}}>🔗 Import URL</button>
                 </div>
               </div>
 
@@ -1153,7 +1154,34 @@ export default function App() {
   const [kbTitle,      setKbTitle]     = useState("");
   const [kbView,       setKbView]      = useState("browse"); // browse | add
   const kbTotal = Object.values(kb).reduce((s,arr)=>s+(arr?.length||0), 0);
+  const [kbUrl,        setKbUrl]        = useState("");
+  const [kbImporting,  setKbImporting]  = useState(false);
+  const [kbImportErr,  setKbImportErr]  = useState("");
+  const [kbAddMode,    setKbAddMode]    = useState("manual"); // manual | url
   const saveKb = (updated) => { setKb(updated); try { localStorage.setItem("empire_kb", JSON.stringify(updated)); } catch {} };
+
+  const importFromUrl = async () => {
+    if (!kbUrl.trim()) return;
+    setKbImporting(true); setKbImportErr("");
+    try {
+      const prov = apiKeys.openrouter ? "openrouter" : "claude";
+      const mod  = providerModels[prov] || (prov==="openrouter"?"anthropic/claude-sonnet-4-5":PROVIDERS.claude.defaultModel);
+      const sys  = "Bạn là AI chuyên extract và tóm tắt nội dung. Nhiệm vụ: đọc URL được cung cấp, extract nội dung chính, tóm tắt thành các bullet points súc tích bằng tiếng Việt. Format output:\nTIÊU ĐỀ: [tên bài viết]\nNỘI DUNG:\n- [point 1]\n- [point 2]\n...\nChỉ trả về format trên, không giải thích thêm.";
+      const userMsg = "Extract và tóm tắt nội dung từ URL này: " + kbUrl.trim() + "\n\nNếu không thể truy cập URL, hãy dựa vào URL để đoán chủ đề và tạo summary placeholder có ích.";
+      const result = await callAI(sys, [], userMsg, prov, mod);
+      const titleMatch = result.match(/TIÊU ĐỀ:\s*(.+)/);
+      const contentMatch = result.match(/NỘI DUNG:\s*([\s\S]+)/);
+      const extractedTitle = titleMatch ? titleMatch[1].trim() : kbUrl.split("/").pop() || "Imported Article";
+      const extractedContent = contentMatch ? contentMatch[1].trim() : result;
+      setKbTitle(extractedTitle);
+      setKbInput(extractedContent);
+      setKbUrl("");
+      setKbAddMode("manual");
+    } catch(e) {
+      setKbImportErr("Lỗi: " + e.message);
+    }
+    setKbImporting(false);
+  };
   // Roadmap
   const [selYear,   setSelYear]  = useState(1);
   const [yrView,    setYrView]   = useState("owns");
@@ -1743,7 +1771,7 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
   const dateStr = new Date().toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric"});
 
   const TABS = [
-    { id:"council",   label:"🏛️ Council",  badge:`${panel.length}/42`,  color:C.gold },
+    { id:"council",   label:"🏛️ Council",  badge:`${panel.length}/${AGENTS.length}`,  color:C.gold },
     { id:"chat",      label:"💬 Chat",      badge:activeAg.n,            color:activeAg.col },
     { id:"memory",    label:"🧠 Memory",    badge:`${mems.length}`,      color:C.pur  },
     { id:"analytics", label:"📊 Analytics", badge:`${decisions.length}`, color:"#34D399" },
@@ -1827,7 +1855,7 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
                 <span style={{fontFamily:FM,fontSize:"8px",color:apiKeys.openrouter?PROVIDERS.openrouter.color:PROVIDERS.claude.color,background:`${apiKeys.openrouter?PROVIDERS.openrouter.color:PROVIDERS.claude.color}10`,border:`1px solid ${apiKeys.openrouter?PROVIDERS.openrouter.color:PROVIDERS.claude.color}25`,padding:"3px 10px",borderRadius:3,marginLeft:"auto"}}>
                   {apiKeys.openrouter ? `🔀 ${providerModels.openrouter||"anthropic/claude-sonnet-4-5"}` : `🟣 Council · ${providerModels.claude||PROVIDERS.claude.defaultModel}`}
                 </span>
-                <button onClick={()=>setShowGrid(p=>!p)} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer"}}>{showGrid?"▲ Ẩn":"▼ 42 Agents"}</button>
+                <button onClick={()=>setShowGrid(p=>!p)} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer"}}>{showGrid?"▲ Ẩn":`▼ ${AGENTS.length} Agents`}</button>
                 {cMsgs.length>0&&<button onClick={()=>setCMsgs([])} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer"}}>XÓA</button>}
                 {cMsgs.length>0&&<button onClick={exportCouncilPDF} style={{fontFamily:FM,fontSize:"9px",color:C.gold,background:C.gD,border:`1px solid ${C.gold}30`,padding:"4px 11px",borderRadius:4,cursor:"pointer",letterSpacing:"0.5px"}}>📋 MINUTES</button>}
                 <button onClick={()=>{setDebateMode(p=>!p);setCompareMode(false);}}
@@ -2765,30 +2793,61 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
             {/* ADD VIEW */}
             {kbView==="add"&&(
               <div style={{background:"rgba(245,158,11,0.05)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:10,padding:"16px 18px",marginBottom:14,flexShrink:0}}>
-                <p style={{fontFamily:FM,fontSize:"9px",color:"#F59E0B",letterSpacing:"2px",margin:"0 0 12px"}}>
-                  THÊM TÀI LIỆU CHO {AGENTS.find(a=>a.id===kbAgent)?.n?.toUpperCase()||kbAgent.toUpperCase()}
-                </p>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                  <p style={{fontFamily:FM,fontSize:"9px",color:"#F59E0B",letterSpacing:"2px",margin:0}}>
+                    THÊM TÀI LIỆU CHO {AGENTS.find(a=>a.id===kbAgent)?.n?.toUpperCase()||kbAgent.toUpperCase()}
+                  </p>
+                  <div style={{display:"flex",gap:4}}>
+                    {[["manual","✏️ Thủ công"],["url","🔗 Import URL"]].map(([m,lbl])=>(
+                      <button key={m} onClick={()=>setKbAddMode(m)}
+                        style={{fontFamily:FM,fontSize:"8px",padding:"3px 10px",borderRadius:4,cursor:"pointer",
+                          background:kbAddMode===m?"rgba(245,158,11,0.15)":"transparent",
+                          border:`1px solid ${kbAddMode===m?"#F59E0B":C.bd}`,
+                          color:kbAddMode===m?"#F59E0B":C.mu}}>{lbl}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {kbAddMode==="url"&&(
+                  <div style={{marginBottom:12}}>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:"#3B82F6",margin:"0 0 8px"}}>
+                      🔗 PASTE URL — AI sẽ tự extract và tóm tắt nội dung
+                    </p>
+                    <div style={{display:"flex",gap:6}}>
+                      <input value={kbUrl} onChange={e=>setKbUrl(e.target.value)}
+                        onKeyDown={e=>e.key==="Enter"&&importFromUrl()}
+                        placeholder="https://paulgraham.com/startupideas.html"
+                        style={{flex:1,background:C.s1,border:`1px solid ${kbImportErr?"#EF4444":"#3B82F6"}`,borderRadius:7,padding:"9px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none"}}/>
+                      <button onClick={importFromUrl} disabled={kbImporting||!kbUrl.trim()}
+                        style={{fontFamily:FM,fontSize:"9px",padding:"9px 16px",borderRadius:7,cursor:"pointer",
+                          background:kbImporting?"transparent":"rgba(59,130,246,0.15)",
+                          border:"1px solid #3B82F6",color:"#3B82F6",fontWeight:700,opacity:kbImporting?0.5:1,whiteSpace:"nowrap"}}>
+                        {kbImporting?"⏳ Đang đọc...":"🔗 Import"}
+                      </button>
+                    </div>
+                    {kbImportErr&&<p style={{fontFamily:FM,fontSize:"9px",color:"#EF4444",margin:"6px 0 0"}}>{kbImportErr}</p>}
+                    <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"6px 0 0"}}>
+                      Sau khi import, bạn có thể chỉnh sửa trước khi lưu
+                    </p>
+                  </div>
+                )}
+
                 <input value={kbTitle} onChange={e=>setKbTitle(e.target.value)}
                   placeholder="Tiêu đề tài liệu (vd: Nguyên tắc 1 - Không chỉ trích)"
                   style={{width:"100%",boxSizing:"border-box",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:7,padding:"9px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none",marginBottom:8}}/>
                 <textarea value={kbInput} onChange={e=>setKbInput(e.target.value)}
-                  placeholder={"Paste nội dung tài liệu, insight từ sách, notes cá nhân...
-
-Ví dụ:
-- Nguyên tắc: Không bao giờ chỉ trích, lên án hay than phiền
-- Lý do: Con người không bị thúc đẩy bởi logic mà bởi cảm xúc và tự ái
-- Ứng dụng: Thay vì nói 'anh sai', hãy hỏi 'anh nghĩ sao nếu...'"}
+                  placeholder="Paste nội dung tài liệu, insight từ sách, notes cá nhân..."
                   rows={8}
                   style={{width:"100%",boxSizing:"border-box",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:7,padding:"9px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none",resize:"vertical",marginBottom:10}}/>
                 <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                  <button onClick={()=>{setKbTitle("");setKbInput("");}}
+                  <button onClick={()=>{setKbTitle("");setKbInput("");setKbUrl("");}}
                     style={{fontFamily:FM,fontSize:"9px",padding:"6px 14px",borderRadius:5,cursor:"pointer",background:"transparent",border:`1px solid ${C.bd}`,color:C.mu}}>Xóa</button>
                   <button onClick={()=>{
                     if(!kbTitle.trim()||!kbInput.trim()) return;
-                    const entry = { id: Date.now().toString(), title: kbTitle.trim(), content: kbInput.trim(), ts: Date.now(), agentId: kbAgent };
+                    const entry = { id: Date.now().toString(), title: kbTitle.trim(), content: kbInput.trim(), ts: Date.now(), agentId: kbAgent, src: kbUrl||"manual" };
                     const updated = { ...kb, [kbAgent]: [...(kb[kbAgent]||[]), entry] };
                     saveKb(updated);
-                    setKbTitle(""); setKbInput(""); setKbView("browse");
+                    setKbTitle(""); setKbInput(""); setKbUrl(""); setKbView("browse");
                   }}
                     style={{fontFamily:FM,fontSize:"9px",padding:"6px 16px",borderRadius:5,cursor:"pointer",background:"rgba(245,158,11,0.15)",border:"1px solid rgba(245,158,11,0.4)",color:"#F59E0B",fontWeight:700}}>
                     💾 LƯU TÀI LIỆU
