@@ -159,6 +159,15 @@ const AGENTS = [
     prompt:"Bạn là Jeff Bezos — xây Amazon từ garage, AWS, Blue Origin. Tư vấn về customer obsession, long-term thinking, working backwards from customer, và operational excellence at scale. Không dùng markdown. Tiếng Việt." },
   { id:"musk",       n:"Musk",        icon:"🚀", col:C.red,  tier:"C", role:"Moonshot Execution",         cost:"~$0.01",
     prompt:"Bạn là Elon Musk — Tesla, SpaceX, X. Tư vấn về first-principles manufacturing, impossibly aggressive timelines, vertical integration, và betting everything on conviction. Không dùng markdown. Tiếng Việt." },
+  // ── NEW AGENTS ───────────────────────────────────────────────────────────
+  { id:"buffett",    n:"Buffett",     icon:"💰", col:"#F59E0B", tier:"A", role:"Value Investor",             cost:"~$0.01",
+    prompt:"Bạn là Warren Buffett — nhà đầu tư vĩ đại nhất mọi thời đại, CEO Berkshire Hathaway. Tư vấn về value investing, kiên nhẫn dài hạn, đọc báo cáo tài chính, moat của doanh nghiệp, và triết lý 'chỉ đầu tư vào thứ bạn hiểu rõ'. Thẳng thắn, dùng ví dụ đơn giản, tránh phức tạp hóa. Không dùng markdown. Tiếng Việt." },
+  { id:"naval",      n:"Naval",       icon:"🧘", col:"#8B5CF6", tier:"A", role:"Wealth & Leverage",          cost:"~$0.01",
+    prompt:"Bạn là Naval Ravikant — founder AngelList, triết gia về wealth và happiness. Tư vấn về specific knowledge, leverage (code/media/capital), building equity không đổi thời gian lấy tiền, và mindset tự do. Súc tích, sâu sắc, mỗi câu như một aphorism. Không dùng markdown. Tiếng Việt." },
+  { id:"graham_p",   n:"Paul Graham", icon:"🔶", col:"#F97316", tier:"A", role:"Startup Thinking",           cost:"~$0.01",
+    prompt:"Bạn là Paul Graham — founder Y Combinator, người đã fund Airbnb/Dropbox/Stripe. Tư vấn về startup ideas, founder mindset, làm thứ gì đó 100 người yêu thay vì 1 triệu người thích vừa vừa, và cách tìm thấy insights người khác bỏ lỡ. Trực tiếp, không ngại chỉ ra sai lầm. Không dùng markdown. Tiếng Việt." },
+  { id:"nhathanh",   n:"Thầy Thích",  icon:"🪷", col:"#6EE7B7", tier:"B", role:"Mindfulness & Presence",    cost:"~$0.01",
+    prompt:"Bạn là Thích Nhất Hạnh — thiền sư, tác giả hơn 100 cuốn sách, người được Martin Luther King đề cử giải Nobel Hòa Bình. Hướng dẫn về mindfulness, sống trong hiện tại, xử lý stress và lo âu, tìm bình yên giữa chaos. Nhẹ nhàng, ấm áp, dùng ẩn dụ thiên nhiên. Tiếng Việt." },
 ];
 
 // ─── STORAGE POLYFILL (VPS: dùng localStorage, Claude.ai: dùng window.storage) ──
@@ -980,6 +989,22 @@ export default function App() {
   const [expandedProv,     setExpandedProv]     = useState(null); // which provider card is open
   // Starred messages
   const [starredIds,  setStarredIds]  = useState(() => new Set());
+  // Devil's Advocate
+  const [devilMode,     setDevilMode]     = useState(false);
+  const [devilQ,        setDevilQ]        = useState("");
+  const [devilRes,      setDevilRes]      = useState("");
+  const [devilBusy,     setDevilBusy]     = useState(false);
+  // Hot Seat
+  const [hotSeatMode,   setHotSeatMode]   = useState(false);
+  const [hotSeatAgent,  setHotSeatAgent]  = useState("carnegie");
+  const [hotSeatMsgs,   setHotSeatMsgs]   = useState([]);
+  const [hotSeatIn,     setHotSeatIn]     = useState("");
+  const [hotSeatBusy,   setHotSeatBusy]   = useState(false);
+  const [hotSeatQ,      setHotSeatQ]      = useState(0); // question index
+  const hotSeatRef = useRef(null);
+  // Consensus Meter
+  const [consensusData, setConsensusData] = useState(null);
+  const [consensusBusy, setConsensusBusy] = useState(false);
   // Compare Mode
   const [compareMode,   setCompareMode]   = useState(false);
   const [compareAgents, setCompareAgents] = useState(["carnegie","jobs","aristotle"]);
@@ -995,6 +1020,17 @@ export default function App() {
   const [debateBusy,    setDebateBusy]    = useState(false);
   const [debateRound,   setDebateRound]   = useState(0);
   const debateRef = useRef(null);
+  // Analytics — Decision Log
+  const [decisions,    setDecisions]    = useState(() => {
+    try { return JSON.parse(localStorage.getItem("empire_decisions") || "[]"); } catch { return []; }
+  });
+  const [decIn,        setDecIn]        = useState({ title:"", context:"", options:"", outcome:"", tags:"" });
+  const [showDecForm,  setShowDecForm]  = useState(false);
+  const [analyticView, setAnalyticView] = useState("decisions"); // decisions | patterns | weekly | agents
+  const [patternRes,   setPatternRes]   = useState("");
+  const [patternBusy,  setPatternBusy]  = useState(false);
+  const [weeklyRes,    setWeeklyRes]    = useState("");
+  const [weeklyBusy,   setWeeklyBusy]   = useState(false);
   // Roadmap
   const [selYear,   setSelYear]  = useState(1);
   const [yrView,    setYrView]   = useState("owns");
@@ -1086,6 +1122,112 @@ export default function App() {
     return d?.choices?.[0]?.message?.content || "Không có response.";
   };
 
+  // ── Decision Log helpers ────────────────────────────────────────────────
+  const saveDecision = (dec) => {
+    const updated = [dec, ...decisions];
+    setDecisions(updated);
+    try { localStorage.setItem("empire_decisions", JSON.stringify(updated)); } catch {}
+  };
+  const deleteDecision = (id) => {
+    const updated = decisions.filter(d => d.id !== id);
+    setDecisions(updated);
+    try { localStorage.setItem("empire_decisions", JSON.stringify(updated)); } catch {}
+  };
+  const addDecision = () => {
+    if (!decIn.title.trim()) return;
+    const dec = {
+      id: Date.now().toString(),
+      title: decIn.title,
+      context: decIn.context,
+      options: decIn.options,
+      outcome: decIn.outcome,
+      tags: decIn.tags.split(",").map(t=>t.trim()).filter(Boolean),
+      ts: Date.now(),
+      status: "open",
+    };
+    saveDecision(dec);
+    setDecIn({ title:"", context:"", options:"", outcome:"", tags:"" });
+    setShowDecForm(false);
+  };
+  const updateDecisionStatus = (id, status) => {
+    const updated = decisions.map(d => d.id===id ? {...d, status} : d);
+    setDecisions(updated);
+    try { localStorage.setItem("empire_decisions", JSON.stringify(updated)); } catch {}
+  };
+
+  // ── Pattern Insights ─────────────────────────────────────────────────────
+  const runPatternInsights = async () => {
+    if (patternBusy || mems.length < 3) return;
+    setPatternBusy(true); setPatternRes("");
+    try {
+      const memSample = mems.slice(-50).map(m => `[${m.tag}] ${m.text.slice(0,100)}`).join("
+");
+      const decSample = decisions.slice(-20).map(d => `[${d.status}] ${d.title}: ${d.context.slice(0,80)}`).join("
+");
+      const sys = "Bạn là chuyên gia phân tích hành vi và tư duy. Phân tích ngắn gọn, sắc bén. Tiếng Việt.";
+      const prompt = `Phân tích ${mems.length} memories và ${decisions.length} decisions sau:
+
+MEMORIES:
+${memSample}
+
+DECISIONS:
+${decSample}
+
+Hãy chỉ ra:
+1. BLIND SPOTS — 2-3 điểm mù trong tư duy
+2. PATTERNS — 2-3 pattern lặp lại
+3. STRENGTHS — 2 điểm mạnh thấy rõ
+4. ACTION — 1 hành động cụ thể nên làm ngay
+
+Ngắn gọn, mỗi điểm 1-2 câu.`;
+      const prov = apiKeys.openrouter ? "openrouter" : "claude";
+      const mod  = apiKeys.openrouter ? (providerModels.openrouter || "anthropic/claude-sonnet-4-5") : (providerModels.claude || PROVIDERS.claude.defaultModel);
+      const reply = await callAI(sys, [], prompt, prov, mod);
+      setPatternRes(reply);
+    } catch(e) { setPatternRes("⚠️ " + e.message); }
+    setPatternBusy(false);
+  };
+
+  // ── Weekly Report ────────────────────────────────────────────────────────
+  const runWeeklyReport = async () => {
+    if (weeklyBusy) return;
+    setWeeklyBusy(true); setWeeklyRes("");
+    try {
+      const weekMs   = 7 * 24 * 60 * 60 * 1000;
+      const weekMems = mems.filter(m => Date.now() - m.ts < weekMs);
+      const weekDecs = decisions.filter(d => Date.now() - d.ts < weekMs);
+      const allSessions = Object.values(
+        JSON.parse(localStorage.getItem("empire_sess_index") || "[]")
+      );
+      const weekSess = Array.isArray(allSessions) ? allSessions.filter(s => Date.now() - (s.updatedAt||0) < weekMs) : [];
+      const agentCounts = {};
+      weekSess.forEach(s => { agentCounts[s.agId] = (agentCounts[s.agId]||0) + 1; });
+      const topAgents = Object.entries(agentCounts).sort((a,b)=>b[1]-a[1]).slice(0,3)
+        .map(([id, cnt]) => { const a = AGENTS.find(x=>x.id===id); return a ? `${a.icon}${a.n}(${cnt})` : id; }).join(", ");
+      const sys = "Bạn là trợ lý tổng kết tuần. Viết báo cáo ngắn gọn, súc tích. Tiếng Việt.";
+      const prompt = `Tổng kết tuần này:
+- ${weekMems.length} memories mới ghi lại
+- ${weekDecs.length} decisions mới
+- ${weekSess.length} chat sessions
+- Top agents: ${topAgents||"chưa có"}
+
+Memories mới:
+${weekMems.slice(-10).map(m=>`• [${m.tag}] ${m.text.slice(0,80)}`).join("
+")||"Chưa có"}
+
+Decisions:
+${weekDecs.map(d=>`• [${d.status}] ${d.title}`).join("
+")||"Chưa có"}
+
+Viết WEEKLY REPORT ngắn gọn gồm: 1) Tóm tắt tuần (2-3 câu) 2) Điểm nổi bật 3) Cần cải thiện 4) Focus tuần tới`;
+      const prov = apiKeys.openrouter ? "openrouter" : "claude";
+      const mod  = apiKeys.openrouter ? (providerModels.openrouter || "anthropic/claude-sonnet-4-5") : (providerModels.claude || PROVIDERS.claude.defaultModel);
+      const reply = await callAI(sys, [], prompt, prov, mod);
+      setWeeklyRes(reply);
+    } catch(e) { setWeeklyRes("⚠️ " + e.message); }
+    setWeeklyBusy(false);
+  };
+
   // ── Star message → Memory ────────────────────────────────────────────────
   const starMessage = (msg, idx) => {
     const mid = msg.id || `star_${idx}_${Date.now()}`;
@@ -1104,6 +1246,104 @@ export default function App() {
       setMems(prev2 => { const u = [...prev2, newMem]; saveMems(u); return u; });
       return next;
     });
+  };
+
+  // ── Devil's Advocate ─────────────────────────────────────────────────────
+  const runDevil = async () => {
+    const txt = devilQ.trim();
+    if (!txt || devilBusy) return;
+    setDevilBusy(true); setDevilRes("");
+    try {
+      const sys = `Bạn là Devil's Advocate — chuyên gia phản biện lạnh lùng và sắc bén. Nhiệm vụ: tìm mọi lý do kế hoạch/ý tưởng này sẽ THẤT BẠI. Liệt kê 5-7 rủi ro, lỗ hổng, và giả định sai lầm. Không an ủi, không tích cực. Chỉ tấn công thẳng vào điểm yếu. Kết thúc bằng: "Câu hỏi sống còn bạn chưa trả lời được:". Không dùng markdown. Tiếng Việt.`;
+      const prov = apiKeys.openrouter ? "openrouter" : "claude";
+      const mod  = apiKeys.openrouter ? (providerModels.openrouter||"anthropic/claude-sonnet-4-5") : (providerModels.claude||PROVIDERS.claude.defaultModel);
+      const reply = await callAI(sys, [], txt, prov, mod);
+      setDevilRes(reply);
+    } catch(e) { setDevilRes("⚠️ " + e.message); }
+    setDevilBusy(false);
+  };
+
+  // ── Hot Seat Mode ─────────────────────────────────────────────────────────
+  const startHotSeat = async (topic) => {
+    if (hotSeatBusy) return;
+    const ag = AGENTS.find(a => a.id === hotSeatAgent);
+    if (!ag) return;
+    setHotSeatMsgs([]);
+    setHotSeatBusy(true);
+    setHotSeatQ(1);
+    try {
+      const sys = ag.prompt + `
+
+Chế độ HOT SEAT COACHING: Bạn đang coach người dùng. Hãy hỏi họ 1 câu hỏi sắc bén, thách thức, buộc họ phải suy nghĩ sâu. Chỉ hỏi 1 câu thôi, không giải thích dài dòng. Bắt đầu bằng context ngắn 1 câu rồi hỏi thẳng. Không dùng markdown. Tiếng Việt.`;
+      const prov = apiKeys.openrouter ? "openrouter" : "claude";
+      const mod  = apiKeys.openrouter ? (providerModels.openrouter||"anthropic/claude-sonnet-4-5") : (providerModels.claude||PROVIDERS.claude.defaultModel);
+      const q = await callAI(sys, [], `Chủ đề: ${topic}`, prov, mod);
+      setHotSeatMsgs([{ role:"assistant", content:q, agentName:ag.n, agentCol:ag.col, agentIcon:ag.icon }]);
+    } catch(e) { setHotSeatMsgs([{ role:"assistant", content:"⚠️ "+e.message, agentName:ag.n, agentCol:ag.col, agentIcon:ag.icon }]); }
+    setHotSeatBusy(false);
+    setTimeout(()=>hotSeatRef.current?.scrollIntoView({behavior:"smooth"}),200);
+  };
+  const replyHotSeat = async () => {
+    const ans = hotSeatIn.trim();
+    if (!ans || hotSeatBusy || hotSeatMsgs.length===0) return;
+    const ag = AGENTS.find(a => a.id === hotSeatAgent);
+    if (!ag) return;
+    const newMsgs = [...hotSeatMsgs, { role:"user", content:ans }];
+    setHotSeatMsgs(newMsgs);
+    setHotSeatIn("");
+    if (hotSeatQ >= 5) {
+      // Final summary
+      setHotSeatBusy(true);
+      try {
+        const sys = ag.prompt + `
+
+Hãy tóm tắt ngắn gọn những insight quan trọng nhất từ cuộc coaching vừa rồi. 3-4 điểm bullet. Tiếng Việt.`;
+        const hist = newMsgs.map(m=>({role:m.role==="user"?"user":"assistant",content:m.content}));
+        const prov = apiKeys.openrouter ? "openrouter" : "claude";
+        const mod  = apiKeys.openrouter ? (providerModels.openrouter||"anthropic/claude-sonnet-4-5") : (providerModels.claude||PROVIDERS.claude.defaultModel);
+        const summary = await callAI(sys, hist, "Tóm tắt coaching session", prov, mod);
+        setHotSeatMsgs(p=>[...p, { role:"assistant", content:"🎯 **Tóm tắt coaching:**
+"+summary, agentName:ag.n, agentCol:ag.col, agentIcon:ag.icon, isSummary:true }]);
+      } catch(e) {}
+      setHotSeatBusy(false);
+      return;
+    }
+    setHotSeatBusy(true);
+    setHotSeatQ(p=>p+1);
+    try {
+      const sys = ag.prompt + `
+
+HOT SEAT COACHING lượt ${hotSeatQ+1}/5. Dựa trên câu trả lời vừa rồi, hỏi 1 câu sâu hơn, thách thức hơn. Chỉ hỏi 1 câu. Không dùng markdown. Tiếng Việt.`;
+      const hist = newMsgs.map(m=>({role:m.role==="user"?"user":"assistant",content:m.content}));
+      const prov = apiKeys.openrouter ? "openrouter" : "claude";
+      const mod  = apiKeys.openrouter ? (providerModels.openrouter||"anthropic/claude-sonnet-4-5") : (providerModels.claude||PROVIDERS.claude.defaultModel);
+      const q = await callAI(sys, hist, ans, prov, mod);
+      setHotSeatMsgs(p=>[...p, { role:"assistant", content:q, agentName:ag.n, agentCol:ag.col, agentIcon:ag.icon }]);
+    } catch(e) { setHotSeatMsgs(p=>[...p,{role:"assistant",content:"⚠️ "+e.message,agentName:ag.n,agentCol:ag.col,agentIcon:ag.icon}]); }
+    setHotSeatBusy(false);
+    setTimeout(()=>hotSeatRef.current?.scrollIntoView({behavior:"smooth"}),200);
+  };
+
+  // ── Consensus Meter ───────────────────────────────────────────────────────
+  const runConsensus = async () => {
+    if (cMsgs.length < 2 || consensusBusy) return;
+    setConsensusBusy(true);
+    try {
+      const lastBot = [...cMsgs].reverse().find(m=>m.role==="assistant");
+      const lastQ   = [...cMsgs].reverse().find(m=>m.role==="user");
+      if (!lastBot || !lastQ) { setConsensusBusy(false); return; }
+      const sys = `Bạn là AI phân tích. Đọc câu trả lời của Hội Đồng và phân tích mức độ đồng thuận. Trả về JSON: {"score":0-100,"summary":"1 câu","agree":["điểm1","điểm2"],"disagree":["điểm1"]}. Chỉ trả về JSON, không giải thích.`;
+      const prov = apiKeys.openrouter ? "openrouter" : "claude";
+      const mod  = apiKeys.openrouter ? (providerModels.openrouter||"anthropic/claude-sonnet-4-5") : (providerModels.claude||PROVIDERS.claude.defaultModel);
+      const raw = await callAI(sys, [], `Câu hỏi: ${lastQ.content}
+
+Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
+      try {
+        const clean = raw.replace(/```json|```/g,"").trim();
+        setConsensusData(JSON.parse(clean));
+      } catch { setConsensusData({ score:50, summary:"Không phân tích được", agree:[], disagree:[] }); }
+    } catch(e) {}
+    setConsensusBusy(false);
   };
 
   // ── Compare Mode ─────────────────────────────────────────────────────────
@@ -1183,67 +1423,63 @@ export default function App() {
   // ── Export Council Minutes PDF ───────────────────────────────────────────
   const exportCouncilPDF = () => {
     if (!cMsgs.length) return;
-    const now    = new Date();
+    const now = new Date();
     const dateStr = now.toLocaleDateString("vi-VN", { weekday:"long", year:"numeric", month:"long", day:"numeric" });
     const timeStr = now.toLocaleTimeString("vi-VN", { hour:"2-digit", minute:"2-digit" });
-    const panelNames = panel.map(id => { const a = AGENTS.find(x => x.id === id); return a ? `${a.icon} ${a.n}` : id; }).join(" · ");
+    const panelNames = panel.map(id => {
+      const a = AGENTS.find(x => x.id === id);
+      return a ? (a.icon + " " + a.n) : id;
+    }).join(" · ");
 
     const rows = cMsgs.map((m, i) => {
       const isU = m.role === "user";
       const bg  = isU ? "#1a2035" : "#0f1520";
-      const col = isU ? "#E8C547" : (AGENTS.find(a=>a.id===m.aid)?.col || "#A78BFA");
-      const who = isU ? "👤 Bạn" : (m.label || "🏛️ Hội Đồng");
+      const col = isU ? "#E8C547" : (AGENTS.find(a => a.id === m.aid)?.col || "#A78BFA");
+      const who = isU ? "Bạn" : (m.label || "Hội Đồng");
       const txt = m.content.split("<").join("&lt;").split(">").join("&gt;").split("\n").join("<br>");
-      return `
-        <div style="margin-bottom:16px;padding:14px 18px;background:${bg};border-radius:8px;border-left:3px solid ${col}">
-          <div style="font-size:10px;color:${col};font-family:monospace;margin-bottom:6px;letter-spacing:1px;text-transform:uppercase">${who} · ${i===0?"Câu hỏi "+(Math.floor(i/2)+1):"Phản hồi "+(Math.floor(i/2)+1)}</div>
-          <div style="font-size:13px;color:#D1CCB8;line-height:1.8">${txt}</div>
-        </div>`;
+      const label = i === 0 ? ("Câu hỏi " + (Math.floor(i/2)+1)) : ("Phản hồi " + (Math.floor(i/2)+1));
+      return [
+        "<div style=\"margin-bottom:16px;padding:14px 18px;background:" + bg + ";border-radius:8px;border-left:3px solid " + col + "\">",
+        "<div style=\"font-size:10px;color:" + col + ";font-family:monospace;margin-bottom:6px;letter-spacing:1px;text-transform:uppercase\">" + who + " · " + label + "</div>",
+        "<div style=\"font-size:13px;color:#D1CCB8;line-height:1.8\">" + txt + "</div>",
+        "</div>"
+      ].join("");
     }).join("");
 
-    const html = `<!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <title>Council Minutes — ${dateStr}</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Mono&family=Syne:wght@400;700;800&display=swap');
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#080B12; color:#D1CCB8; font-family:'Syne',sans-serif; padding:40px; max-width:780px; margin:0 auto; }
-    @media print {
-      body { background:#fff!important; color:#111!important; padding:20px; }
-      .no-print { display:none; }
-      div[style*="background:#"] { background:#f8f8f8!important; border-left-color:#666!important; }
-    }
-  </style>
-</head>
-<body>
-  <div style="border-bottom:1px solid #1E2533;padding-bottom:20px;margin-bottom:28px">
-    <div style="font-family:'Space Mono',monospace;font-size:8px;color:#4A5568;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px">Empire Mission Control · Council Minutes</div>
-    <div style="font-size:24px;font-weight:800;color:#E8C547;margin-bottom:8px">📋 Biên Bản Hội Đồng</div>
-    <div style="display:flex;gap:20px;flex-wrap:wrap">
-      <div><span style="font-family:'Space Mono',monospace;font-size:9px;color:#6B7280">NGÀY · GIỜ</span><br><span style="font-size:12px;color:#D1CCB8">${dateStr} · ${timeStr}</span></div>
-      <div><span style="font-family:'Space Mono',monospace;font-size:9px;color:#6B7280">HỘI ĐỒNG</span><br><span style="font-size:12px;color:#D1CCB8">${panelNames}</span></div>
-      <div><span style="font-family:'Space Mono',monospace;font-size:9px;color:#6B7280">SỐ LƯỢT</span><br><span style="font-size:12px;color:#D1CCB8">${cMsgs.filter(m=>m.role==="user").length} câu hỏi · ${cMsgs.filter(m=>m.role==="assistant").length} phản hồi</span></div>
-    </div>
-  </div>
-  <div>${rows}</div>
-  <div style="margin-top:28px;padding-top:16px;border-top:1px solid #1E2533;font-family:'Space Mono',monospace;font-size:9px;color:#4A5568;text-align:center">
-    Empire Mission Control · Xuất lúc ${timeStr} · ${dateStr}
-  </div>
-  <div class="no-print" style="margin-top:24px;text-align:center">
-    <button onclick="window.print()" style="padding:10px 28px;background:rgba(232,197,71,0.15);border:1px solid rgba(232,197,71,0.4);border-radius:6px;color:#E8C547;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:1px">🖨️ IN / LƯU PDF</button>
-  </div>
-</body>
-</html>`;
+    const qCount = cMsgs.filter(m => m.role === "user").length;
+    const aCount = cMsgs.filter(m => m.role === "assistant").length;
 
+    const parts = [
+      "<!DOCTYPE html><html lang=\"vi\"><head><meta charset=\"UTF-8\">",
+      "<title>Council Minutes</title>",
+      "<style>",
+      "* { margin:0; padding:0; box-sizing:border-box; }",
+      "body { background:#080B12; color:#D1CCB8; font-family:sans-serif; padding:40px; max-width:780px; margin:0 auto; }",
+      "@media print { body { background:#fff!important; color:#111!important; } .no-print { display:none; } }",
+      "</style></head><body>",
+      "<div style=\"border-bottom:1px solid #1E2533;padding-bottom:20px;margin-bottom:28px\">",
+      "<div style=\"font-size:9px;color:#4A5568;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px\">Empire Mission Control · Council Minutes</div>",
+      "<div style=\"font-size:24px;font-weight:800;color:#E8C547;margin-bottom:10px\">Bien Ban Hoi Dong</div>",
+      "<div style=\"font-size:12px;color:#D1CCB8;margin-bottom:4px\">Ngay: " + dateStr + " · " + timeStr + "</div>",
+      "<div style=\"font-size:12px;color:#D1CCB8;margin-bottom:4px\">Hoi dong: " + panelNames + "</div>",
+      "<div style=\"font-size:12px;color:#D1CCB8\">" + qCount + " cau hoi · " + aCount + " phan hoi</div>",
+      "</div>",
+      "<div>" + rows + "</div>",
+      "<div style=\"margin-top:28px;padding-top:16px;border-top:1px solid #1E2533;font-size:9px;color:#4A5568;text-align:center\">",
+      "Empire Mission Control · " + timeStr + " · " + dateStr,
+      "</div>",
+      "<div class=\"no-print\" style=\"margin-top:24px;text-align:center\">",
+      "<button onclick=\"window.print()\" style=\"padding:10px 28px;background:rgba(232,197,71,0.15);border:1px solid rgba(232,197,71,0.4);border-radius:6px;color:#E8C547;font-size:11px;cursor:pointer\">In / Luu PDF</button>",
+      "</div>",
+      "</body></html>"
+    ];
+
+    const html = parts.join("");
     const blob = new Blob([html], { type: "text/html" });
     const url  = URL.createObjectURL(blob);
     const win  = window.open(url, "_blank");
     if (win) {
-      win.onload = () => {
-        setTimeout(() => { try { win.print(); } catch{} }, 500);
-      };
+      win.onload = () => { setTimeout(() => { try { win.print(); } catch(e) {} }, 500); };
     }
   };
 
@@ -1378,12 +1614,13 @@ export default function App() {
   const dateStr = new Date().toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric"});
 
   const TABS = [
-    { id:"council", label:"🏛️ Council",  badge:`${panel.length}/42`,  color:C.gold },
-    { id:"chat",    label:"💬 Chat",      badge:activeAg.n,            color:activeAg.col },
-    { id:"memory",  label:"🧠 Memory",    badge:`${mems.length}`,      color:C.pur  },
-    { id:"daily",   label:"📅 Lịch Ngày", badge:`${scPct}%`,           color:C.grn  },
-    { id:"setup",   label:"⚙️ Setup",     badge:`${sPct}%`,            color:C.blu  },
-    { id:"roadmap", label:"🗺 5 Năm",     badge:"2026–2030",           color:C.org  },
+    { id:"council",   label:"🏛️ Council",  badge:`${panel.length}/42`,  color:C.gold },
+    { id:"chat",      label:"💬 Chat",      badge:activeAg.n,            color:activeAg.col },
+    { id:"memory",    label:"🧠 Memory",    badge:`${mems.length}`,      color:C.pur  },
+    { id:"analytics", label:"📊 Analytics", badge:`${decisions.length}`, color:"#34D399" },
+    { id:"daily",     label:"📅 Lịch Ngày", badge:`${scPct}%`,           color:C.grn  },
+    { id:"setup",     label:"⚙️ Setup",     badge:`${sPct}%`,            color:C.blu  },
+    { id:"roadmap",   label:"🗺 5 Năm",     badge:"2026–2030",           color:C.org  },
   ];
 
   const yr = YEARS.find(y=>y.y===selYear);
@@ -1467,10 +1704,24 @@ export default function App() {
                   style={{fontFamily:FM,fontSize:"9px",color:debateMode?"#F87171":C.mu,background:debateMode?"rgba(248,113,113,0.1)":"transparent",border:`1px solid ${debateMode?"#F87171":C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer",letterSpacing:"0.5px"}}>
                   ⚔️ Debate
                 </button>
-                <button onClick={()=>{setCompareMode(p=>!p);setDebateMode(false);}}
+                <button onClick={()=>{setCompareMode(p=>!p);setDebateMode(false);setDevilMode(false);setHotSeatMode(false);}}
                   style={{fontFamily:FM,fontSize:"9px",color:compareMode?C.pur:C.mu,background:compareMode?`${C.pur}10`:"transparent",border:`1px solid ${compareMode?C.pur:C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer",letterSpacing:"0.5px"}}>
                   🔀 Compare
                 </button>
+                <button onClick={()=>{setDevilMode(p=>!p);setDebateMode(false);setCompareMode(false);setHotSeatMode(false);}}
+                  style={{fontFamily:FM,fontSize:"9px",color:devilMode?"#F87171":C.mu,background:devilMode?"rgba(248,113,113,0.08)":"transparent",border:`1px solid ${devilMode?"#F87171":C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer",letterSpacing:"0.5px"}}>
+                  😈 Devil
+                </button>
+                <button onClick={()=>{setHotSeatMode(p=>!p);setDebateMode(false);setCompareMode(false);setDevilMode(false);setHotSeatMsgs([]);setHotSeatQ(0);}}
+                  style={{fontFamily:FM,fontSize:"9px",color:hotSeatMode?"#FB923C":C.mu,background:hotSeatMode?"rgba(251,146,60,0.08)":"transparent",border:`1px solid ${hotSeatMode?"#FB923C":C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer",letterSpacing:"0.5px"}}>
+                  🎯 Hot Seat
+                </button>
+                {cMsgs.length>1&&(
+                  <button onClick={runConsensus} disabled={consensusBusy}
+                    style={{fontFamily:FM,fontSize:"9px",color:consensusData?"#34D399":C.mu,background:consensusData?"rgba(52,211,153,0.08)":"transparent",border:`1px solid ${consensusData?"#34D399":C.bd}`,padding:"4px 11px",borderRadius:4,cursor:consensusBusy?"not-allowed":"pointer",letterSpacing:"0.5px"}}>
+                    {consensusBusy?"⏳":"🤝"} Consensus
+                  </button>
+                )}
               </div>
               {showGrid&&(
                 <div style={{maxHeight:240,overflowY:"auto",marginBottom:10}}>
@@ -1551,6 +1802,104 @@ export default function App() {
                     <div ref={debateRef}/>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ══ DEVIL'S ADVOCATE ══ */}
+            {devilMode && (
+              <div style={{flexShrink:0,marginBottom:10,background:"rgba(248,113,113,0.04)",border:"1px solid rgba(248,113,113,0.18)",borderRadius:10,padding:"14px 16px"}}>
+                <p style={{fontFamily:FM,fontSize:"9px",color:"#F87171",letterSpacing:"2px",margin:"0 0 8px"}}>😈 DEVIL'S ADVOCATE — TẤN CÔNG VÀO KẾ HOẠCH CỦA BẠN</p>
+                <p style={{fontSize:11,color:C.fa,margin:"0 0 10px"}}>AI sẽ tìm mọi lý do kế hoạch/ý tưởng sẽ thất bại. Không an ủi.</p>
+                <div style={{display:"flex",gap:8}}>
+                  <input value={devilQ} onChange={e=>setDevilQ(e.target.value)}
+                    onKeyDown={e=>e.key==="Enter"&&runDevil()}
+                    placeholder="Kế hoạch / ý tưởng cần phản biện..."
+                    style={{flex:1,background:C.s1,border:"1px solid rgba(248,113,113,0.25)",borderRadius:6,padding:"8px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none"}}/>
+                  <button onClick={runDevil} disabled={devilBusy||!devilQ.trim()}
+                    style={{padding:"8px 14px",background:devilBusy?"transparent":"rgba(248,113,113,0.12)",border:"1px solid rgba(248,113,113,0.35)",borderRadius:6,cursor:devilBusy?"not-allowed":"pointer",fontFamily:FM,fontSize:"10px",color:"#F87171"}}>
+                    {devilBusy?"⏳":"😈 TẤN CÔNG"}
+                  </button>
+                </div>
+                {devilRes&&(
+                  <div style={{marginTop:10,background:"rgba(248,113,113,0.04)",border:"1px solid rgba(248,113,113,0.15)",borderRadius:8,padding:"12px 14px",fontSize:12,color:C.txt,lineHeight:1.8,whiteSpace:"pre-wrap"}}>
+                    {devilRes}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ══ HOT SEAT ══ */}
+            {hotSeatMode && (
+              <div style={{flexShrink:0,marginBottom:10,background:"rgba(251,146,60,0.04)",border:"1px solid rgba(251,146,60,0.18)",borderRadius:10,padding:"14px 16px"}}>
+                <p style={{fontFamily:FM,fontSize:"9px",color:"#FB923C",letterSpacing:"2px",margin:"0 0 8px"}}>🎯 HOT SEAT — AGENT HỎI NGƯỢC LẠI BẠN (5 CÂU)</p>
+                <div style={{display:"flex",gap:8,marginBottom:10,alignItems:"center",flexWrap:"wrap"}}>
+                  <select value={hotSeatAgent} onChange={e=>setHotSeatAgent(e.target.value)}
+                    style={{background:C.s1,border:"1px solid rgba(251,146,60,0.25)",borderRadius:5,padding:"6px 10px",color:C.txt,fontFamily:FM,fontSize:"10px",cursor:"pointer"}}>
+                    {AGENTS.filter(a=>["S","A"].includes(a.tier)).map(a=><option key={a.id} value={a.id}>{a.icon} {a.n}</option>)}
+                  </select>
+                  <span style={{fontFamily:FM,fontSize:"9px",color:C.mu}}>Câu {Math.min(hotSeatQ,5)}/5</span>
+                  {hotSeatMsgs.length>0&&<button onClick={()=>{setHotSeatMsgs([]);setHotSeatQ(0);}} style={{fontFamily:FM,fontSize:"8px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"3px 8px",borderRadius:3,cursor:"pointer"}}>RESET</button>}
+                </div>
+                {hotSeatMsgs.length===0&&(
+                  <div style={{display:"flex",gap:8}}>
+                    <input id="hotseat-topic" placeholder="Chủ đề bạn muốn được coach..." defaultValue=""
+                      style={{flex:1,background:C.s1,border:"1px solid rgba(251,146,60,0.25)",borderRadius:6,padding:"8px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none"}}/>
+                    <button onClick={()=>{const v=document.getElementById("hotseat-topic").value.trim();if(v)startHotSeat(v);}}
+                      style={{padding:"8px 14px",background:"rgba(251,146,60,0.12)",border:"1px solid rgba(251,146,60,0.35)",borderRadius:6,cursor:"pointer",fontFamily:FM,fontSize:"10px",color:"#FB923C"}}>
+                      🎯 BẮT ĐẦU
+                    </button>
+                  </div>
+                )}
+                {hotSeatMsgs.length>0&&(
+                  <div>
+                    <div style={{maxHeight:280,overflowY:"auto",display:"flex",flexDirection:"column",gap:6,marginBottom:8}}>
+                      {hotSeatMsgs.map((m,i)=>{
+                        const isU=m.role==="user";
+                        return(
+                          <div key={i} style={{display:"flex",flexDirection:"column",alignItems:isU?"flex-end":"flex-start"}}>
+                            {!isU&&<span style={{fontFamily:FM,fontSize:"8px",color:m.agentCol||"#FB923C",marginBottom:2}}>{m.agentIcon} {m.agentName}</span>}
+                            <div style={{maxWidth:"88%",padding:"9px 13px",borderRadius:isU?"10px 10px 2px 10px":"10px 10px 10px 2px",background:isU?"rgba(251,146,60,0.08)":m.isSummary?"rgba(52,211,153,0.06)":"rgba(251,146,60,0.04)",border:`1px solid ${isU?"rgba(251,146,60,0.2)":m.isSummary?"rgba(52,211,153,0.2)":"rgba(251,146,60,0.12)"}`,fontSize:12,color:C.txt,lineHeight:1.7,whiteSpace:"pre-wrap"}}>
+                              {m.content}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {hotSeatBusy&&<div style={{display:"flex",gap:3,padding:"4px 0"}}>{[0,1,2].map(i=><div key={i} style={{width:5,height:5,borderRadius:"50%",background:"#FB923C",animation:`dot 1.2s ${i*.2}s ease-in-out infinite`}}/>)}</div>}
+                      <div ref={hotSeatRef}/>
+                    </div>
+                    {hotSeatQ<=5&&!hotSeatMsgs.find(m=>m.isSummary)&&(
+                      <div style={{display:"flex",gap:8}}>
+                        <input value={hotSeatIn} onChange={e=>setHotSeatIn(e.target.value)}
+                          onKeyDown={e=>e.key==="Enter"&&replyHotSeat()}
+                          placeholder="Câu trả lời của bạn..."
+                          style={{flex:1,background:C.s1,border:"1px solid rgba(251,146,60,0.25)",borderRadius:6,padding:"8px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none"}}/>
+                        <button onClick={replyHotSeat} disabled={hotSeatBusy||!hotSeatIn.trim()}
+                          style={{padding:"8px 14px",background:"rgba(251,146,60,0.12)",border:"1px solid rgba(251,146,60,0.35)",borderRadius:6,cursor:hotSeatBusy?"not-allowed":"pointer",fontFamily:FM,fontSize:"10px",color:"#FB923C"}}>
+                          TRẢ LỜI →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ══ CONSENSUS METER ══ */}
+            {consensusData && (
+              <div style={{flexShrink:0,marginBottom:10,background:"rgba(52,211,153,0.04)",border:"1px solid rgba(52,211,153,0.2)",borderRadius:10,padding:"12px 16px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8,flexWrap:"wrap"}}>
+                  <p style={{fontFamily:FM,fontSize:"9px",color:"#34D399",letterSpacing:"2px",margin:0}}>🤝 CONSENSUS METER</p>
+                  <div style={{flex:1,height:6,background:C.bd,borderRadius:3,overflow:"hidden",minWidth:80}}>
+                    <div style={{height:"100%",width:`${consensusData.score}%`,background:`linear-gradient(90deg,#F87171,#34D399)`,borderRadius:3,transition:"width .5s ease"}}/>
+                  </div>
+                  <span style={{fontFamily:FM,fontSize:"14px",fontWeight:700,color:consensusData.score>70?"#34D399":consensusData.score>40?"#FB923C":"#F87171"}}>{consensusData.score}%</span>
+                  <button onClick={()=>setConsensusData(null)} style={{fontFamily:FM,fontSize:"8px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"2px 7px",borderRadius:3,cursor:"pointer"}}>×</button>
+                </div>
+                <p style={{fontSize:12,color:C.txt,margin:"0 0 6px"}}>{consensusData.summary}</p>
+                <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+                  {consensusData.agree?.length>0&&<div><p style={{fontFamily:FM,fontSize:"8px",color:"#34D399",margin:"0 0 3px"}}>ĐỒNG THUẬN</p>{consensusData.agree.map((a,i)=><p key={i} style={{fontSize:11,color:C.fa,margin:"0 0 2px"}}>✓ {a}</p>)}</div>}
+                  {consensusData.disagree?.length>0&&<div><p style={{fontFamily:FM,fontSize:"8px",color:"#F87171",margin:"0 0 3px"}}>BẤT ĐỒNG</p>{consensusData.disagree.map((a,i)=><p key={i} style={{fontSize:11,color:C.fa,margin:"0 0 2px"}}>✗ {a}</p>)}</div>}
+                </div>
               </div>
             )}
 
@@ -1922,6 +2271,205 @@ export default function App() {
         )}
 
         {/* ════ ROADMAP ════ */}
+        {/* ════ ANALYTICS ════ */}
+        {tab==="analytics"&&(
+          <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:"16px 20px",boxSizing:"border-box"}}>
+
+            {/* Sub-nav */}
+            <div style={{display:"flex",gap:6,marginBottom:18,flexWrap:"wrap"}}>
+              {[["decisions","📝 Decision Log"],["patterns","🔍 Pattern Insights"],["weekly","📈 Weekly Report"],["agents","🤖 Agent Stats"]].map(([id,lbl])=>(
+                <button key={id} onClick={()=>setAnalyticView(id)}
+                  style={{fontFamily:FM,fontSize:"10px",padding:"5px 14px",borderRadius:5,cursor:"pointer",letterSpacing:"0.5px",
+                    background: analyticView===id ? "rgba(52,211,153,0.12)" : "transparent",
+                    border: `1px solid ${analyticView===id ? "#34D399" : C.bd}`,
+                    color: analyticView===id ? "#34D399" : C.mu}}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+
+            {/* ── DECISION LOG ── */}
+            {analyticView==="decisions"&&(
+              <div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                  <div>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:"#34D399",letterSpacing:"2px",margin:"0 0 3px"}}>DECISION LOG</p>
+                    <p style={{fontSize:12,color:C.fa,margin:0}}>{decisions.length} decisions · {decisions.filter(d=>d.status==="resolved").length} resolved</p>
+                  </div>
+                  <button onClick={()=>setShowDecForm(p=>!p)}
+                    style={{fontFamily:FM,fontSize:"10px",color:"#34D399",background:"rgba(52,211,153,0.1)",border:"1px solid rgba(52,211,153,0.3)",padding:"6px 14px",borderRadius:6,cursor:"pointer"}}>
+                    {showDecForm ? "✕ HỦY" : "+ THÊM DECISION"}
+                  </button>
+                </div>
+
+                {showDecForm&&(
+                  <div style={{background:"rgba(52,211,153,0.05)",border:"1px solid rgba(52,211,153,0.2)",borderRadius:10,padding:"16px",marginBottom:16}}>
+                    <p style={{fontFamily:FM,fontSize:"8px",color:"#34D399",letterSpacing:"2px",margin:"0 0 12px"}}>DECISION MỚI</p>
+                    {[["title","Tiêu đề quyết định *","text"],["context","Bối cảnh / Vấn đề","textarea"],["options","Các lựa chọn đã xem xét","textarea"],["outcome","Kết quả mong đợi","text"],["tags","Tags (phân cách bằng dấu phẩy)","text"]].map(([f,ph,type])=>(
+                      <div key={f} style={{marginBottom:10}}>
+                        {type==="textarea"
+                          ? <textarea value={decIn[f]} onChange={e=>setDecIn(p=>({...p,[f]:e.target.value}))} placeholder={ph} rows={2}
+                              style={{width:"100%",boxSizing:"border-box",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:6,padding:"8px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none",resize:"vertical"}}/>
+                          : <input value={decIn[f]} onChange={e=>setDecIn(p=>({...p,[f]:e.target.value}))} placeholder={ph}
+                              style={{width:"100%",boxSizing:"border-box",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:6,padding:"8px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none"}}/>
+                        }
+                      </div>
+                    ))}
+                    <button onClick={addDecision}
+                      style={{padding:"8px 20px",background:"rgba(52,211,153,0.15)",border:"1px solid rgba(52,211,153,0.4)",borderRadius:6,cursor:"pointer",fontFamily:FM,fontSize:"10px",color:"#34D399",letterSpacing:"1px"}}>
+                      LƯU DECISION ✓
+                    </button>
+                  </div>
+                )}
+
+                {decisions.length===0&&!showDecForm&&(
+                  <div style={{textAlign:"center",padding:"40px 0",color:C.mu}}>
+                    <p style={{fontSize:28,margin:"0 0 10px"}}>📝</p>
+                    <p style={{fontSize:13,margin:"0 0 6px"}}>Chưa có decision nào</p>
+                    <p style={{fontSize:11,color:C.fa}}>Mỗi quyết định quan trọng nên được ghi lại — dù nhỏ.</p>
+                  </div>
+                )}
+
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {decisions.map(d=>(
+                    <div key={d.id} style={{background:C.s1,border:`1px solid ${d.status==="resolved"?"rgba(52,211,153,0.2)":C.bd}`,borderRadius:9,padding:"14px 16px"}}>
+                      <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+                        <div style={{flex:1}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
+                            <span style={{fontSize:14,fontWeight:600,color:d.status==="resolved"?"#34D399":C.txt}}>{d.title}</span>
+                            <span style={{fontFamily:FM,fontSize:"8px",padding:"2px 7px",borderRadius:3,
+                              background:d.status==="resolved"?"rgba(52,211,153,0.12)":"rgba(251,146,60,0.1)",
+                              color:d.status==="resolved"?"#34D399":"#FB923C"}}>
+                              {d.status==="resolved"?"✓ RESOLVED":"⏳ OPEN"}
+                            </span>
+                            <span style={{fontFamily:FM,fontSize:"8px",color:C.mu,marginLeft:"auto"}}>
+                              {new Date(d.ts).toLocaleDateString("vi-VN")}
+                            </span>
+                          </div>
+                          {d.context&&<p style={{fontSize:12,color:C.fa,margin:"0 0 4px",lineHeight:1.6}}>{d.context}</p>}
+                          {d.options&&<p style={{fontSize:11,color:C.mu,margin:"0 0 4px"}}>🔀 {d.options}</p>}
+                          {d.outcome&&<p style={{fontSize:11,color:"#34D399",margin:"0 0 6px"}}>🎯 {d.outcome}</p>}
+                          {d.tags.length>0&&(
+                            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                              {d.tags.map(t=><span key={t} style={{fontFamily:FM,fontSize:"8px",padding:"1px 6px",borderRadius:3,background:"rgba(167,139,250,0.1)",color:C.pur}}>{t}</span>)}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{display:"flex",gap:5,flexShrink:0}}>
+                          {d.status!=="resolved"&&(
+                            <button onClick={()=>updateDecisionStatus(d.id,"resolved")}
+                              style={{fontFamily:FM,fontSize:"8px",padding:"3px 8px",borderRadius:3,cursor:"pointer",background:"rgba(52,211,153,0.1)",border:"1px solid rgba(52,211,153,0.3)",color:"#34D399"}}>✓</button>
+                          )}
+                          <button onClick={()=>deleteDecision(d.id)}
+                            style={{fontFamily:FM,fontSize:"8px",padding:"3px 8px",borderRadius:3,cursor:"pointer",background:"transparent",border:`1px solid ${C.bd}`,color:C.mu}}>×</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── PATTERN INSIGHTS ── */}
+            {analyticView==="patterns"&&(
+              <div>
+                <div style={{marginBottom:16}}>
+                  <p style={{fontFamily:FM,fontSize:"9px",color:"#34D399",letterSpacing:"2px",margin:"0 0 4px"}}>🔍 PATTERN INSIGHTS</p>
+                  <p style={{fontSize:12,color:C.fa,margin:"0 0 14px"}}>AI phân tích {mems.length} memories + {decisions.length} decisions → tìm blind spots & patterns</p>
+                  <button onClick={runPatternInsights} disabled={patternBusy||mems.length<3}
+                    style={{padding:"8px 20px",background:patternBusy?"transparent":"rgba(52,211,153,0.12)",border:"1px solid rgba(52,211,153,0.35)",borderRadius:6,cursor:patternBusy||mems.length<3?"not-allowed":"pointer",fontFamily:FM,fontSize:"10px",color:"#34D399",letterSpacing:"1px"}}>
+                    {patternBusy?"⏳ Đang phân tích...":mems.length<3?"Cần ít nhất 3 memories":"🔍 PHÂN TÍCH NGAY"}
+                  </button>
+                </div>
+                {patternRes&&(
+                  <div style={{background:"rgba(52,211,153,0.04)",border:"1px solid rgba(52,211,153,0.18)",borderRadius:10,padding:"18px 20px"}}>
+                    <Md text={patternRes} accent="#34D399"/>
+                  </div>
+                )}
+                {!patternRes&&!patternBusy&&mems.length>=3&&(
+                  <div style={{textAlign:"center",padding:"30px 0",color:C.mu}}>
+                    <p style={{fontSize:28,margin:"0 0 8px"}}>🔍</p>
+                    <p style={{fontSize:12}}>Bấm để AI phân tích patterns trong data của bạn</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── WEEKLY REPORT ── */}
+            {analyticView==="weekly"&&(
+              <div>
+                <div style={{marginBottom:16}}>
+                  <p style={{fontFamily:FM,fontSize:"9px",color:"#34D399",letterSpacing:"2px",margin:"0 0 4px"}}>📈 WEEKLY REPORT</p>
+                  <p style={{fontSize:12,color:C.fa,margin:"0 0 14px"}}>Tổng kết 7 ngày qua: memories, decisions, chat sessions</p>
+                  <button onClick={runWeeklyReport} disabled={weeklyBusy}
+                    style={{padding:"8px 20px",background:weeklyBusy?"transparent":"rgba(52,211,153,0.12)",border:"1px solid rgba(52,211,153,0.35)",borderRadius:6,cursor:weeklyBusy?"not-allowed":"pointer",fontFamily:FM,fontSize:"10px",color:"#34D399",letterSpacing:"1px"}}>
+                    {weeklyBusy?"⏳ Đang tổng hợp...":"📈 TẠO WEEKLY REPORT"}
+                  </button>
+                </div>
+                {weeklyRes&&(
+                  <div style={{background:"rgba(52,211,153,0.04)",border:"1px solid rgba(52,211,153,0.18)",borderRadius:10,padding:"18px 20px"}}>
+                    <Md text={weeklyRes} accent="#34D399"/>
+                  </div>
+                )}
+                {!weeklyRes&&!weeklyBusy&&(
+                  <div style={{textAlign:"center",padding:"30px 0",color:C.mu}}>
+                    <p style={{fontSize:28,margin:"0 0 8px"}}>📈</p>
+                    <p style={{fontSize:12}}>Bấm để tạo báo cáo tuần này</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── AGENT STATS ── */}
+            {analyticView==="agents"&&(()=>{
+              const idx = (() => { try { return JSON.parse(localStorage.getItem("empire_sess_index")||"[]"); } catch { return []; } })();
+              const counts = {};
+              (Array.isArray(idx)?idx:[]).forEach(s => { counts[s.agId] = (counts[s.agId]||0)+1; });
+              const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+              const total  = sorted.reduce((s,[,c])=>s+c, 0);
+              return(
+                <div>
+                  <p style={{fontFamily:FM,fontSize:"9px",color:"#34D399",letterSpacing:"2px",margin:"0 0 14px"}}>🤖 AGENT USAGE STATS</p>
+                  {sorted.length===0&&(
+                    <div style={{textAlign:"center",padding:"30px 0",color:C.mu}}>
+                      <p style={{fontSize:28,margin:"0 0 8px"}}>🤖</p>
+                      <p style={{fontSize:12}}>Chưa có data — hãy chat với các agents trước!</p>
+                    </div>
+                  )}
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {sorted.map(([agId, cnt], i)=>{
+                      const ag = AGENTS.find(a=>a.id===agId);
+                      if(!ag) return null;
+                      const pct = total > 0 ? Math.round(cnt/total*100) : 0;
+                      return(
+                        <div key={agId} style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:8,padding:"10px 14px"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:5}}>
+                            <span style={{fontSize:16}}>{ag.icon}</span>
+                            <span style={{fontSize:13,fontWeight:600,color:ag.col}}>{ag.n}</span>
+                            <span style={{fontFamily:FM,fontSize:"9px",color:C.mu}}>{ag.role}</span>
+                            <span style={{fontFamily:FM,fontSize:"11px",color:ag.col,marginLeft:"auto",fontWeight:700}}>{cnt} chats</span>
+                            <span style={{fontFamily:FM,fontSize:"9px",color:C.mu}}>{pct}%</span>
+                          </div>
+                          <div style={{height:4,background:C.bd,borderRadius:2,overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${ag.col},${ag.col}88)`,borderRadius:2,transition:"width .4s ease"}}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {sorted.length>0&&(
+                    <div style={{marginTop:14,padding:"12px 16px",background:"rgba(232,197,71,0.05)",border:"1px solid rgba(232,197,71,0.15)",borderRadius:8}}>
+                      <p style={{fontFamily:FM,fontSize:"8px",color:C.gold,margin:"0 0 4px",letterSpacing:"1.5px"}}>TỔNG KẾT</p>
+                      <p style={{fontSize:12,color:C.fa,margin:0}}>{total} tổng sessions · {sorted.length} agents đã dùng · Agent yêu thích: {AGENTS.find(a=>a.id===sorted[0]?.[0])?.n||"N/A"}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+          </div>
+        )}
+
         {tab==="roadmap"&&yr&&(
           <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:"14px 20px 40px",boxSizing:"border-box"}}>
             <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"14px 18px",marginBottom:16}}>
