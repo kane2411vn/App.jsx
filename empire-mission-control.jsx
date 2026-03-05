@@ -940,6 +940,115 @@ function ChatTab({ sessions, activeSessId, sessMessages, sessReady, sidebarOpen,
             <InputBar val={aIn} set={setAIn} onSend={sendAgent} busy={aBusy} ph={`Nhắn ${activeAg.n}…`} col={activeAg.col} memHint={""}/>
           </div>
         )}
+        {/* ════ KNOWLEDGE BASE ════ */}
+        {tab==="knowledge"&&(
+          <div style={{flex:1,display:"flex",flexDirection:"column",maxWidth:960,width:"100%",margin:"0 auto",padding:"0 20px",boxSizing:"border-box",overflowY:"auto"}}>
+            <div style={{padding:"16px 0 10px",flexShrink:0}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:14}}>
+                <div>
+                  <p style={{fontFamily:FM,fontSize:"9px",color:"#F59E0B",letterSpacing:"2px",margin:"0 0 3px"}}>📚 KNOWLEDGE BASE</p>
+                  <p style={{fontSize:13,color:C.txt,margin:0}}>Tài liệu bổ sung cho từng Agent — Agent sẽ tự động học khi trả lời</p>
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={()=>setKbView("browse")} style={{fontFamily:FM,fontSize:"9px",padding:"5px 14px",borderRadius:5,cursor:"pointer",background:kbView==="browse"?"rgba(245,158,11,0.15)":"transparent",border:`1px solid ${kbView==="browse"?"#F59E0B":C.bd}`,color:kbView==="browse"?"#F59E0B":C.mu}}>📖 Xem</button>
+                  <button onClick={()=>setKbView("add")} style={{fontFamily:FM,fontSize:"9px",padding:"5px 14px",borderRadius:5,cursor:"pointer",background:kbView==="add"?"rgba(245,158,11,0.15)":"transparent",border:`1px solid ${kbView==="add"?"#F59E0B":C.bd}`,color:kbView==="add"?"#F59E0B":C.mu}}>➕ Thêm</button>
+                </div>
+              </div>
+
+              {/* Agent selector */}
+              <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:12}}>
+                {AGENTS.filter(a=>a.tier==="S"||a.tier==="A").map(a=>{
+                  const count = kb[a.id]?.length||0;
+                  const sel = kbAgent===a.id;
+                  return(
+                    <button key={a.id} onClick={()=>setKbAgent(a.id)}
+                      style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:sel?`${a.col}14`:"transparent",border:`1px solid ${sel?a.col:C.bd}`,borderRadius:6,cursor:"pointer",position:"relative"}}>
+                      <span style={{fontSize:11}}>{a.icon}</span>
+                      <span style={{fontFamily:FM,fontSize:"9px",color:sel?a.col:C.mu}}>{a.n}</span>
+                      {count>0&&<span style={{fontFamily:FM,fontSize:"8px",background:`${a.col}22`,color:a.col,padding:"0 5px",borderRadius:8}}>{count}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ADD VIEW */}
+            {kbView==="add"&&(
+              <div style={{background:"rgba(245,158,11,0.05)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:10,padding:"16px 18px",marginBottom:14,flexShrink:0}}>
+                <p style={{fontFamily:FM,fontSize:"9px",color:"#F59E0B",letterSpacing:"2px",margin:"0 0 12px"}}>
+                  THÊM TÀI LIỆU CHO {AGENTS.find(a=>a.id===kbAgent)?.n?.toUpperCase()||kbAgent.toUpperCase()}
+                </p>
+                <input value={kbTitle} onChange={e=>setKbTitle(e.target.value)}
+                  placeholder="Tiêu đề tài liệu (vd: Nguyên tắc 1 - Không chỉ trích)"
+                  style={{width:"100%",boxSizing:"border-box",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:7,padding:"9px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none",marginBottom:8}}/>
+                <textarea value={kbInput} onChange={e=>setKbInput(e.target.value)}
+                  placeholder={"Paste nội dung tài liệu, insight từ sách, notes cá nhân...
+
+Ví dụ:
+- Nguyên tắc: Không bao giờ chỉ trích, lên án hay than phiền
+- Lý do: Con người không bị thúc đẩy bởi logic mà bởi cảm xúc và tự ái
+- Ứng dụng: Thay vì nói 'anh sai', hãy hỏi 'anh nghĩ sao nếu...'"}
+                  rows={8}
+                  style={{width:"100%",boxSizing:"border-box",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:7,padding:"9px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none",resize:"vertical",marginBottom:10}}/>
+                <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                  <button onClick={()=>{setKbTitle("");setKbInput("");}}
+                    style={{fontFamily:FM,fontSize:"9px",padding:"6px 14px",borderRadius:5,cursor:"pointer",background:"transparent",border:`1px solid ${C.bd}`,color:C.mu}}>Xóa</button>
+                  <button onClick={()=>{
+                    if(!kbTitle.trim()||!kbInput.trim()) return;
+                    const entry = { id: Date.now().toString(), title: kbTitle.trim(), content: kbInput.trim(), ts: Date.now(), agentId: kbAgent };
+                    const updated = { ...kb, [kbAgent]: [...(kb[kbAgent]||[]), entry] };
+                    saveKb(updated);
+                    setKbTitle(""); setKbInput(""); setKbView("browse");
+                  }}
+                    style={{fontFamily:FM,fontSize:"9px",padding:"6px 16px",borderRadius:5,cursor:"pointer",background:"rgba(245,158,11,0.15)",border:"1px solid rgba(245,158,11,0.4)",color:"#F59E0B",fontWeight:700}}>
+                    💾 LƯU TÀI LIỆU
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* BROWSE VIEW */}
+            {kbView==="browse"&&(()=>{
+              const agDocs = kb[kbAgent]||[];
+              const agent  = AGENTS.find(a=>a.id===kbAgent);
+              return(
+                <div style={{flex:1}}>
+                  {agDocs.length===0?(
+                    <div style={{textAlign:"center",padding:"40px 20px",background:C.s1,borderRadius:10,border:`1px dashed ${C.bd}`}}>
+                      <p style={{fontSize:28,margin:"0 0 8px"}}>{agent?.icon||"📚"}</p>
+                      <p style={{fontSize:13,color:C.mu,margin:"0 0 12px"}}>{agent?.n} chưa có tài liệu nào.</p>
+                      <button onClick={()=>setKbView("add")}
+                        style={{fontFamily:FM,fontSize:"9px",padding:"6px 16px",borderRadius:5,cursor:"pointer",background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.3)",color:"#F59E0B"}}>
+                        ➕ Thêm tài liệu đầu tiên
+                      </button>
+                    </div>
+                  ):(
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:"0 0 4px"}}>{agDocs.length} TÀI LIỆU · {agent?.n} sẽ tự động tham chiếu khi trả lời</p>
+                      {agDocs.map((doc,i)=>(
+                        <div key={doc.id} style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:9,padding:"12px 14px"}}>
+                          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:6}}>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}>
+                              <span style={{fontFamily:FM,fontSize:"8px",color:"#F59E0B",background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.2)",padding:"1px 7px",borderRadius:3}}>#{i+1}</span>
+                              <p style={{fontSize:13,fontWeight:600,color:C.txt,margin:0}}>{doc.title}</p>
+                            </div>
+                            <button onClick={()=>{
+                              const updated = {...kb, [kbAgent]:(kb[kbAgent]||[]).filter(d=>d.id!==doc.id)};
+                              saveKb(updated);
+                            }} style={{background:"none",border:"none",color:C.mu,cursor:"pointer",fontSize:13,flexShrink:0,padding:"0 2px"}}>×</button>
+                          </div>
+                          <p style={{fontSize:12,color:C.fa,margin:0,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{doc.content.slice(0,300)}{doc.content.length>300?"...":""}</p>
+                          <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"6px 0 0"}}>{new Date(doc.ts).toLocaleDateString("vi-VN")}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
       </div>
     </div>
   );
@@ -1031,6 +1140,14 @@ export default function App() {
   const [patternBusy,  setPatternBusy]  = useState(false);
   const [weeklyRes,    setWeeklyRes]    = useState("");
   const [weeklyBusy,   setWeeklyBusy]   = useState(false);
+  // Knowledge Base
+  const [kb,           setKb]          = useState(() => { try { return JSON.parse(localStorage.getItem("empire_kb")||"{}"); } catch { return {}; } });
+  const [kbAgent,      setKbAgent]     = useState("carnegie");
+  const [kbInput,      setKbInput]     = useState("");
+  const [kbTitle,      setKbTitle]     = useState("");
+  const [kbView,       setKbView]      = useState("browse"); // browse | add
+  const kbTotal = Object.values(kb).reduce((s,arr)=>s+(arr?.length||0), 0);
+  const saveKb = (updated) => { setKb(updated); try { localStorage.setItem("empire_kb", JSON.stringify(updated)); } catch {} };
   // Roadmap
   const [selYear,   setSelYear]  = useState(1);
   const [yrView,    setYrView]   = useState("owns");
@@ -1543,6 +1660,24 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
   };
   const renameSession = (id, title) => sessUpdateIndex(id, { title });
 
+  // ── Knowledge Base system prompt builder ────────────────────────────────
+  const buildAgentSys = (ag) => {
+    let sys = ag.prompt || "";
+    const agKb = kb[ag.id];
+    if (agKb && agKb.length > 0) {
+      const docs = agKb.map((d,i) => "[" + (i+1) + "] " + d.title + ":
+" + d.content.slice(0,600)).join("
+
+");
+      sys += "
+
+--- TÀI LIỆU BỔ SUNG (tham chiếu khi liên quan) ---
+" + docs + "
+---";
+    }
+    return sys;
+  };
+
   // ── sendAgent — uses the provider saved when session was created
   const sendAgent = async () => {
     const txt = aIn.trim();
@@ -1560,7 +1695,7 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
       sessUpdateIndex(sid, { title: txt.slice(0,48) + (txt.length>48?"…":""), updatedAt: Date.now(), msgCount: 1 });
     try {
       const hist = curMsgs.map(m => ({ role: m.role==="user"?"user":"assistant", content: m.content }));
-      const reply = await callAI(activeAg.prompt, hist, txt, pid, mid);
+      const reply = await callAI(buildAgentSys(activeAg), hist, txt, pid, mid);
       // Find label for this model
       const modelLabel = prov.models.find(m => m.id === mid)?.label || mid;
       const botMsg = {
@@ -1616,6 +1751,7 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
     { id:"daily",     label:"📅 Lịch Ngày", badge:`${scPct}%`,           color:C.grn  },
     { id:"setup",     label:"⚙️ Setup",     badge:`${sPct}%`,            color:C.blu  },
     { id:"roadmap",   label:"🗺 5 Năm",     badge:"2026–2030",           color:C.org  },
+    { id:"knowledge", label:"📚 Knowledge",  badge:`${kbTotal}`,          color:"#F59E0B" },
   ];
 
   const yr = YEARS.find(y=>y.y===selYear);
@@ -2592,6 +2728,115 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
                 ))}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ════ KNOWLEDGE BASE ════ */}
+        {tab==="knowledge"&&(
+          <div style={{flex:1,display:"flex",flexDirection:"column",maxWidth:960,width:"100%",margin:"0 auto",padding:"0 20px",boxSizing:"border-box",overflowY:"auto"}}>
+            <div style={{padding:"16px 0 10px",flexShrink:0}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:14}}>
+                <div>
+                  <p style={{fontFamily:FM,fontSize:"9px",color:"#F59E0B",letterSpacing:"2px",margin:"0 0 3px"}}>📚 KNOWLEDGE BASE</p>
+                  <p style={{fontSize:13,color:C.txt,margin:0}}>Tài liệu bổ sung cho từng Agent — Agent sẽ tự động học khi trả lời</p>
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={()=>setKbView("browse")} style={{fontFamily:FM,fontSize:"9px",padding:"5px 14px",borderRadius:5,cursor:"pointer",background:kbView==="browse"?"rgba(245,158,11,0.15)":"transparent",border:`1px solid ${kbView==="browse"?"#F59E0B":C.bd}`,color:kbView==="browse"?"#F59E0B":C.mu}}>📖 Xem</button>
+                  <button onClick={()=>setKbView("add")} style={{fontFamily:FM,fontSize:"9px",padding:"5px 14px",borderRadius:5,cursor:"pointer",background:kbView==="add"?"rgba(245,158,11,0.15)":"transparent",border:`1px solid ${kbView==="add"?"#F59E0B":C.bd}`,color:kbView==="add"?"#F59E0B":C.mu}}>➕ Thêm</button>
+                </div>
+              </div>
+
+              {/* Agent selector */}
+              <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:12}}>
+                {AGENTS.filter(a=>a.tier==="S"||a.tier==="A").map(a=>{
+                  const count = kb[a.id]?.length||0;
+                  const sel = kbAgent===a.id;
+                  return(
+                    <button key={a.id} onClick={()=>setKbAgent(a.id)}
+                      style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:sel?`${a.col}14`:"transparent",border:`1px solid ${sel?a.col:C.bd}`,borderRadius:6,cursor:"pointer",position:"relative"}}>
+                      <span style={{fontSize:11}}>{a.icon}</span>
+                      <span style={{fontFamily:FM,fontSize:"9px",color:sel?a.col:C.mu}}>{a.n}</span>
+                      {count>0&&<span style={{fontFamily:FM,fontSize:"8px",background:`${a.col}22`,color:a.col,padding:"0 5px",borderRadius:8}}>{count}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ADD VIEW */}
+            {kbView==="add"&&(
+              <div style={{background:"rgba(245,158,11,0.05)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:10,padding:"16px 18px",marginBottom:14,flexShrink:0}}>
+                <p style={{fontFamily:FM,fontSize:"9px",color:"#F59E0B",letterSpacing:"2px",margin:"0 0 12px"}}>
+                  THÊM TÀI LIỆU CHO {AGENTS.find(a=>a.id===kbAgent)?.n?.toUpperCase()||kbAgent.toUpperCase()}
+                </p>
+                <input value={kbTitle} onChange={e=>setKbTitle(e.target.value)}
+                  placeholder="Tiêu đề tài liệu (vd: Nguyên tắc 1 - Không chỉ trích)"
+                  style={{width:"100%",boxSizing:"border-box",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:7,padding:"9px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none",marginBottom:8}}/>
+                <textarea value={kbInput} onChange={e=>setKbInput(e.target.value)}
+                  placeholder={"Paste nội dung tài liệu, insight từ sách, notes cá nhân...
+
+Ví dụ:
+- Nguyên tắc: Không bao giờ chỉ trích, lên án hay than phiền
+- Lý do: Con người không bị thúc đẩy bởi logic mà bởi cảm xúc và tự ái
+- Ứng dụng: Thay vì nói 'anh sai', hãy hỏi 'anh nghĩ sao nếu...'"}
+                  rows={8}
+                  style={{width:"100%",boxSizing:"border-box",background:C.s1,border:`1px solid ${C.bd}`,borderRadius:7,padding:"9px 12px",color:C.txt,fontFamily:F,fontSize:12,outline:"none",resize:"vertical",marginBottom:10}}/>
+                <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                  <button onClick={()=>{setKbTitle("");setKbInput("");}}
+                    style={{fontFamily:FM,fontSize:"9px",padding:"6px 14px",borderRadius:5,cursor:"pointer",background:"transparent",border:`1px solid ${C.bd}`,color:C.mu}}>Xóa</button>
+                  <button onClick={()=>{
+                    if(!kbTitle.trim()||!kbInput.trim()) return;
+                    const entry = { id: Date.now().toString(), title: kbTitle.trim(), content: kbInput.trim(), ts: Date.now(), agentId: kbAgent };
+                    const updated = { ...kb, [kbAgent]: [...(kb[kbAgent]||[]), entry] };
+                    saveKb(updated);
+                    setKbTitle(""); setKbInput(""); setKbView("browse");
+                  }}
+                    style={{fontFamily:FM,fontSize:"9px",padding:"6px 16px",borderRadius:5,cursor:"pointer",background:"rgba(245,158,11,0.15)",border:"1px solid rgba(245,158,11,0.4)",color:"#F59E0B",fontWeight:700}}>
+                    💾 LƯU TÀI LIỆU
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* BROWSE VIEW */}
+            {kbView==="browse"&&(()=>{
+              const agDocs = kb[kbAgent]||[];
+              const agent  = AGENTS.find(a=>a.id===kbAgent);
+              return(
+                <div style={{flex:1}}>
+                  {agDocs.length===0?(
+                    <div style={{textAlign:"center",padding:"40px 20px",background:C.s1,borderRadius:10,border:`1px dashed ${C.bd}`}}>
+                      <p style={{fontSize:28,margin:"0 0 8px"}}>{agent?.icon||"📚"}</p>
+                      <p style={{fontSize:13,color:C.mu,margin:"0 0 12px"}}>{agent?.n} chưa có tài liệu nào.</p>
+                      <button onClick={()=>setKbView("add")}
+                        style={{fontFamily:FM,fontSize:"9px",padding:"6px 16px",borderRadius:5,cursor:"pointer",background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.3)",color:"#F59E0B"}}>
+                        ➕ Thêm tài liệu đầu tiên
+                      </button>
+                    </div>
+                  ):(
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:"0 0 4px"}}>{agDocs.length} TÀI LIỆU · {agent?.n} sẽ tự động tham chiếu khi trả lời</p>
+                      {agDocs.map((doc,i)=>(
+                        <div key={doc.id} style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:9,padding:"12px 14px"}}>
+                          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:6}}>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}>
+                              <span style={{fontFamily:FM,fontSize:"8px",color:"#F59E0B",background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.2)",padding:"1px 7px",borderRadius:3}}>#{i+1}</span>
+                              <p style={{fontSize:13,fontWeight:600,color:C.txt,margin:0}}>{doc.title}</p>
+                            </div>
+                            <button onClick={()=>{
+                              const updated = {...kb, [kbAgent]:(kb[kbAgent]||[]).filter(d=>d.id!==doc.id)};
+                              saveKb(updated);
+                            }} style={{background:"none",border:"none",color:C.mu,cursor:"pointer",fontSize:13,flexShrink:0,padding:"0 2px"}}>×</button>
+                          </div>
+                          <p style={{fontSize:12,color:C.fa,margin:0,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{doc.content.slice(0,300)}{doc.content.length>300?"...":""}</p>
+                          <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"6px 0 0"}}>{new Date(doc.ts).toLocaleDateString("vi-VN")}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 
