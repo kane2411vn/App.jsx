@@ -932,7 +932,7 @@ function ChatTab({ sessions, activeSessId, sessMessages, sessReady, sidebarOpen,
         {/* Active chat */}
         {activeSess && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", padding: "0 16px" }}>
-            <Bubbles msgs={activeMsgs} busy={aBusy} botRef={aRef} acol={activeAg.col} />
+            <Bubbles msgs={activeMsgs} busy={aBusy} botRef={aRef} acol={activeAg.col} onRate={onRate} ratedIds={ratedIds}/>
             {activeMsgs.length === 0 && !aBusy && (
               <div style={{ flexShrink: 0, padding: "10px 0 6px", textAlign: "center" }}>
                 <p style={{ fontSize: 12, color: C.mu, margin: "0 0 10px" }}>
@@ -2553,6 +2553,52 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
         {/* ════ ANALYTICS ════ */}
         {tab==="analytics"&&(
           <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:"16px 20px",boxSizing:"border-box"}}>
+
+            {/* ── PERFORMANCE LEADERBOARD ── */}
+            {(()=>{
+              const ranked = AGENTS
+                .map(ag => ({ ...ag, r: ratings[ag.id] }))
+                .filter(ag => ag.r && ag.r.count > 0)
+                .sort((a,b) => parseFloat(b.r.avg) - parseFloat(a.r.avg));
+              if (ranked.length === 0) return (
+                <div style={{background:"rgba(52,211,153,0.05)",border:"1px solid rgba(52,211,153,0.2)",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+                  <p style={{fontFamily:FM,fontSize:"9px",color:"#34D399",letterSpacing:"2px",margin:"0 0 4px"}}>📊 AGENT PERFORMANCE</p>
+                  <p style={{fontSize:12,color:C.mu,margin:0}}>Chưa có rating. Hover lên response trong Chat → chọn ⭐ để rate.</p>
+                </div>
+              );
+              const best = ranked[0];
+              return (
+                <div style={{background:"rgba(52,211,153,0.05)",border:"1px solid rgba(52,211,153,0.2)",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                    <div>
+                      <p style={{fontFamily:FM,fontSize:"9px",color:"#34D399",letterSpacing:"2px",margin:"0 0 3px"}}>📊 AGENT PERFORMANCE LEADERBOARD</p>
+                      <p style={{fontSize:12,color:C.mu,margin:0}}>{ranked.length} agents được rated · Hover response → ⭐ để rate</p>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <p style={{fontFamily:FM,fontSize:"8px",color:"#34D399",margin:"0 0 2px"}}>🏆 BEST</p>
+                      <p style={{fontSize:13,fontWeight:700,color:best.col,margin:0}}>{best.icon} {best.n} · {best.r.avg}⭐</p>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {ranked.map((ag,i)=>{
+                      const pct = (parseFloat(ag.r.avg)/5*100).toFixed(0);
+                      return(
+                        <div key={ag.id} style={{display:"flex",alignItems:"center",gap:10}}>
+                          <span style={{fontFamily:FM,fontSize:"9px",color:i===0?"#F59E0B":i===1?"#94A3B8":i===2?"#CD7F32":C.mu,width:16,textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":(i+1)}</span>
+                          <span style={{fontSize:13,width:20}}>{ag.icon}</span>
+                          <span style={{fontSize:12,color:ag.col,width:90,fontWeight:600}}>{ag.n}</span>
+                          <div style={{flex:1,height:6,background:"rgba(255,255,255,0.06)",borderRadius:3,overflow:"hidden"}}>
+                            <div style={{width:pct+"%",height:"100%",background:`linear-gradient(90deg,${ag.col}80,${ag.col})`,borderRadius:3,transition:"width .5s"}}/>
+                          </div>
+                          <span style={{fontFamily:FM,fontSize:"9px",color:ag.col,width:32,textAlign:"right"}}>{ag.r.avg}⭐</span>
+                          <span style={{fontFamily:FM,fontSize:"8px",color:C.mu,width:36,textAlign:"right"}}>{ag.r.count}x</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Sub-nav */}
             <div style={{display:"flex",gap:6,marginBottom:18,flexWrap:"wrap"}}>
