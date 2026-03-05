@@ -1158,6 +1158,15 @@ export default function App() {
   const [kbImporting,  setKbImporting]  = useState(false);
   const [kbImportErr,  setKbImportErr]  = useState("");
   const [kbAddMode,    setKbAddMode]    = useState("manual"); // manual | url
+  // Daily Briefing
+  const [briefing,       setBriefing]       = useState(() => { try { const b=JSON.parse(localStorage.getItem("empire_briefing")||"null"); return b; } catch { return null; } });
+  const [briefingBusy,   setBriefingBusy]   = useState(false);
+  const [briefingDate,   setBriefingDate]   = useState("");
+  // Web Search
+  const [webSearchEnabled, setWebSearchEnabled] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("empire_websearch")||"false"); } catch { return false; }
+  });
+  const [webSearching,     setWebSearching]     = useState(false);
   const saveKb = (updated) => { setKb(updated); try { localStorage.setItem("empire_kb", JSON.stringify(updated)); } catch {} };
 
   const importFromUrl = async () => {
@@ -1227,8 +1236,79 @@ export default function App() {
   // callAI — routes to correct provider endpoint
   // providerId: "claude"|"openai"|"gemini"|"kimi"|"qwen"
   // modelId: specific model string (optional, falls back to providerModels[providerId])
+  // ── Daily Briefing generator ─────────────────────────────────────────────
+  const generateBriefing = async () => {
+    setBriefingBusy(true);
+    const today = new Date().toLocaleDateString("vi-VN", { weekday:"long", year:"numeric", month:"long", day:"numeric" });
+    const prov  = apiKeys.openrouter ? "openrouter" : "claude";
+    const mod   = providerModels[prov] || (prov==="openrouter"?"anthropic/claude-sonnet-4-5":PROVIDERS.claude.defaultModel);
+    const agents = ["carnegie","jobs","buffett","naval","aristotle","dalio"];
+    const results = [];
+    for (const agId of agents) {
+      const ag = AGENTS.find(a=>a.id===agId);
+      if (!ag) continue;
+      try {
+        const sys = buildAgentSys(ag);
+        const prompt = "Hôm nay là " + today + ". Hãy cho tôi 1 insight quan trọng nhất, 1 hành động cụ thể nên làm hôm nay, và 1 cảnh báo/rủi ro cần tránh. Format:\n💡 INSIGHT: [câu ngắn]\n⚡ HÀNH ĐỘNG: [việc cụ thể]\n⚠️ CẢNH BÁO: [rủi ro]\n\nNgắn gọn, súc tích, thực tế.";
+        const reply = await callAI(sys, [], prompt, prov, mod);
+        results.push({ agId, agName: ag.n, agIcon: ag.icon, agCol: ag.col, text: reply });
+      } catch(e) { results.push({ agId, agName: ag.n, agIcon: ag.icon, agCol: ag.col, text: "⚠️ Lỗi kết nối" }); }
+    }
+    // Generate synthesis
+    const allTexts = results.map(r => r.agName + ": " + r.text).join("\n\n");
+    let synthesis = "";
+    try {
+      synthesis = await callAI(
+        "Bạn là synthesis AI. Tổng hợp ngắn gọn các insights từ hội đồng cố vấn thành 3 điểm hành động ưu tiên nhất cho ngày hôm nay.",
+        [], "Tổng hợp từ hội đồng:\n" + allTexts + "\n\nCho ra 3 VIỆC ƯU TIÊN hôm nay theo thứ tự quan trọng. Ngắn gọn.",
+        prov, mod
+      );
+    } catch(e) {}
+    const b = { date: today, ts: Date.now(), agents: results, synthesis };
+    setBriefing(b);
+    setBriefingDate(today);
+    try { localStorage.setItem("empire_briefing", JSON.stringify(b)); } catch {}
+    setBriefingBusy(false);
+  };
+
+  // ── Web Search helper ─────────────────────────────────────────────────────
+  const searchWeb = async (query) => {
+    try {
+      const key = apiKeys.openrouter || apiKeys.claude;
+      if (!key) return null;
+      const prov = apiKeys.openrouter ? "openrouter" : "claude";
+      const mod  = providerModels[prov] || (prov==="openrouter"?"anthropic/claude-sonnet-4-5":PROVIDERS.claude.defaultModel);
+      const sys  = "You are a web search assistant. Given a query, provide a concise summary of current information about it as if you searched the web. Include key facts, recent developments, and relevant data. Be factual and specific. Respond in Vietnamese.";
+      const searchMsg = "Search and summarize current information about: " + query + "\n\nProvide 3-5 key points with the most important/recent information.";
+      const pHeaders = { "Content-Type": "application/json", "Authorization": "Bearer " + key };
+      if (prov === "openrouter") { pHeaders["HTTP-Referer"] = "https://empire.kgt.life"; pHeaders["X-Title"] = "Empire Council"; }
+      const baseUrl = prov === "openrouter" ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.anthropic.com/v1/messages";
+      let result;
+      if (prov === "openrouter") {
+        const r = await fetch(baseUrl, { method:"POST", headers:pHeaders, body: JSON.stringify({ model:mod, max_tokens:600, messages:[{role:"system",content:sys},{role:"user",content:searchMsg}] }) });
+        const d = await r.json();
+        result = d?.choices?.[0]?.message?.content || null;
+      } else {
+        const r = await fetch(baseUrl, { method:"POST", headers:{...pHeaders,"x-api-key":key,"anthropic-version":"2023-06-01"}, body: JSON.stringify({ model:mod, max_tokens:600, system:sys, messages:[{role:"user",content:searchMsg}] }) });
+        const d = await r.json();
+        result = d?.content?.[0]?.text || null;
+      }
+      return result;
+    } catch(e) { return null; }
+  };
+
   const callAI = async (sys, hist, txt, providerId = activeProviderId, modelId = null) => {
     let finalSys = sys;
+    // ── Web Search injection
+    if (webSearchEnabled) {
+      const needsSearch = /hôm nay|hiện tại|mới nhất|gần đây|2024|2025|2026|tin tức|giá|thị trường|today|current|latest|recent|news|price|market/i.test(txt);
+      if (needsSearch) {
+        setWebSearching(true);
+        const searchResult = await searchWeb(txt.slice(0, 200));
+        setWebSearching(false);
+        if (searchResult) finalSys += "\n\n--- KẾT QUẢ TÌM KIẾM THỰC TẾ (ưu tiên dùng thông tin này) ---\n" + searchResult + "\n---";
+      }
+    }
     if (useRAG && mems.length) {
       const rel = searchMems(txt, mems);
       if (rel.length) finalSys += memCtx(rel);
@@ -1850,6 +1930,10 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
                 <button onClick={()=>setUseRAG(p=>!p)} style={{display:"flex",alignItems:"center",gap:5,padding:"4px 12px",background:useRAG?C.purD:"transparent",border:`1px solid ${useRAG?C.pur:C.bd}`,borderRadius:4,cursor:"pointer"}}>
                   <span style={{fontFamily:FM,fontSize:"9px",color:useRAG?C.pur:C.mu,letterSpacing:"1px"}}>🧠 RAG {useRAG?"ON":"OFF"}</span>
                 </button>
+                <button onClick={()=>setWebSearchEnabled(p=>{const n=!p;try{localStorage.setItem("empire_websearch",JSON.stringify(n))}catch{}return n;})}
+                  style={{display:"flex",alignItems:"center",gap:5,padding:"4px 12px",background:webSearchEnabled?"rgba(52,211,153,0.08)":"transparent",border:`1px solid ${webSearchEnabled?"#34D399":C.bd}`,borderRadius:4,cursor:"pointer"}}>
+                  <span style={{fontFamily:FM,fontSize:"9px",color:webSearchEnabled?"#34D399":C.mu,letterSpacing:"1px"}}>{webSearching?"⏳ ...":webSearchEnabled?"🌐 WEB ON":"🌐 WEB OFF"}</span>
+                </button>
                 <button onClick={()=>setPanel(AGENTS.filter(a=>a.tier==="S").map(a=>a.id))} style={{fontFamily:FM,fontSize:"9px",color:C.gold,background:C.gD,border:`1px solid ${C.gold}28`,padding:"4px 11px",borderRadius:4,cursor:"pointer",letterSpacing:"1px"}}>S-TIER</button>
                 <button onClick={()=>setPanel(AGENTS.slice(0,8).map(a=>a.id))} style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"transparent",border:`1px solid ${C.bd}`,padding:"4px 11px",borderRadius:4,cursor:"pointer"}}>TOP 8</button>
                 <span style={{fontFamily:FM,fontSize:"8px",color:apiKeys.openrouter?PROVIDERS.openrouter.color:PROVIDERS.claude.color,background:`${apiKeys.openrouter?PROVIDERS.openrouter.color:PROVIDERS.claude.color}10`,border:`1px solid ${apiKeys.openrouter?PROVIDERS.openrouter.color:PROVIDERS.claude.color}25`,padding:"3px 10px",borderRadius:3,marginLeft:"auto"}}>
@@ -2217,6 +2301,43 @@ Câu trả lời: ${lastBot.content.slice(0,600)}`, prov, mod);
         {/* ════ DAILY ════ */}
         {tab==="daily"&&(
           <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:"14px 20px 40px",boxSizing:"border-box"}}>
+
+            {/* ── DAILY BRIEFING ── */}
+            <div style={{background:"rgba(232,197,71,0.05)",border:"1px solid rgba(232,197,71,0.2)",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:briefing?12:0}}>
+                <div>
+                  <p style={{fontFamily:FM,fontSize:"9px",color:C.gold,letterSpacing:"2px",margin:"0 0 2px"}}>⚡ DAILY BRIEFING — HỘI ĐỒNG CỐ VẤN</p>
+                  <p style={{fontSize:12,color:C.mu,margin:0}}>{briefing?briefing.date:"Nhận insights cá nhân từ 6 cố vấn mỗi sáng"}</p>
+                </div>
+                <button onClick={generateBriefing} disabled={briefingBusy}
+                  style={{fontFamily:FM,fontSize:"9px",padding:"6px 14px",borderRadius:6,cursor:"pointer",
+                    background:briefingBusy?"transparent":"rgba(232,197,71,0.12)",
+                    border:"1px solid rgba(232,197,71,0.4)",color:C.gold,fontWeight:700,
+                    opacity:briefingBusy?0.5:1,whiteSpace:"nowrap",flexShrink:0}}>
+                  {briefingBusy?"⏳ Đang tổng hợp...":"🌅 Tạo Briefing"}
+                </button>
+              </div>
+
+              {briefing&&(
+                <div>
+                  {briefing.synthesis&&(
+                    <div style={{background:"rgba(232,197,71,0.08)",border:"1px solid rgba(232,197,71,0.25)",borderRadius:8,padding:"10px 14px",marginBottom:10}}>
+                      <p style={{fontFamily:FM,fontSize:"8px",color:C.gold,letterSpacing:"2px",margin:"0 0 6px"}}>🎯 3 VIỆC ƯU TIÊN HÔM NAY</p>
+                      <p style={{fontSize:12,color:C.txt,margin:0,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{briefing.synthesis}</p>
+                    </div>
+                  )}
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:8}}>
+                    {briefing.agents.map(ag=>(
+                      <div key={ag.agId} style={{background:C.s1,border:`1px solid ${ag.agCol}22`,borderRadius:8,padding:"10px 12px"}}>
+                        <p style={{fontFamily:FM,fontSize:"9px",color:ag.agCol,margin:"0 0 6px"}}>{ag.agIcon} {ag.agName.toUpperCase()}</p>
+                        <p style={{fontSize:11,color:C.fa,margin:0,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{ag.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div style={{background:C.grnD,border:`1px solid ${C.grn}20`,borderRadius:10,padding:"13px 18px",marginBottom:14}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                 <div>
