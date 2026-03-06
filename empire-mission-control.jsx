@@ -261,7 +261,7 @@ function Bubbles({ msgs, busy, botRef, acol, onStar, starredIds, onRate, ratings
               {/* Action buttons on hover */}
               {hovIdx===i && (
                 <div style={{position:"absolute",top:6,right:isU?"auto":-68,left:isU?-68:"auto",display:"flex",flexDirection:"column",gap:3}}>
-                  {onStar && (
+                  {!isU && onStar && (
                     <button onClick={()=>onStar(m,i)} title={isStarred?"Đã lưu":"Lưu vào Memory"}
                       style={{width:26,height:26,borderRadius:5,background:isStarred?`${mc}22`:"rgba(0,0,0,0.55)",border:`1px solid ${isStarred?mc+"55":C.bd}`,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>
                       {isStarred?"⭐":"☆"}
@@ -1092,11 +1092,15 @@ export default function App() {
       sessUpdateCache(sid,finalMsgs);
       sessUpdateIndex(sid,{updatedAt:Date.now(),msgCount:finalMsgs.length});
       // Session Intelligence: auto-analyze after 3rd exchange
-      if(finalMsgs.filter(m=>m.role==="assistant").length===2){
-        analyzeSession(sid,activeAg.id,finalMsgs);
+      const botCount=finalMsgs.filter(m=>m.role==="assistant").length;
+      if(botCount>=2&&botCount%2===0){
+        analyzeSession(sid,finalMsgs,activeAg);
       }
       if(autoMemory)extractMemory(activeAg.id,txt,reply);
-      addNotif({type:"response",title:`${activeAg.icon} ${activeAg.n} trả lời`,msg:reply.slice(0,80)+"…"});
+      // Only notify on first reply in a new session (not every message)
+      if(finalMsgs.filter(m=>m.role==="assistant").length===1){
+        addNotif({type:"response",title:`${activeAg.icon} ${activeAg.n}`,msg:reply.slice(0,80)+"…"});
+      }
     } catch(e){
       const errMsgs=[...nextMsgs,{role:"assistant",content:`⚠️ ${e.message||"Lỗi kết nối."}`,label:"System",aid:""}];
       sessUpdateCache(sid,errMsgs);
@@ -1718,7 +1722,7 @@ export default function App() {
             )}
 
             {analyticView==="agents"&&(()=>{
-              const idx=(()=>{try{return JSON.parse(localStorage.getItem("empire_sess_index_v1")||"[]");}catch{return[];}})();
+              const idx=sessions; // use state directly
               const counts={};
               (Array.isArray(idx)?idx:[]).forEach(s=>{counts[s.agId]=(counts[s.agId]||0)+1;});
               const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
