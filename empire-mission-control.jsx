@@ -186,13 +186,51 @@ const SETUP = [
   {id:"s13",ph:4,tc:C.gold,tag:"REVIEW",time:"Q4",title:"Review Năm 1 — Điều chỉnh Roadmap",why:"Data beats assumptions.",fix:"Không đạt target: quan trọng là hiểu WHY.",check:"Đã review tất cả 4 quý, roadmap 2027 đã cập nhật",items:[{t:"do",v:"Review từng quý, đánh dấu achieved/missed"},{t:"do",v:"Celebrate progress — dù nhỏ."}]},
 ];
 
-// ─── 5-YEAR ROADMAP (default empty — user customizes) ────────────────────────
+// ─── 5-YEAR ROADMAP ──────────────────────────────────────────────────────────
 const DEFAULT_YEARS = [
-  {y:1,period:"Năm 1",theme:"",col:C.blu,icon:"🔧",identity:"",mantra:"",pct:0,income:"",metric:"",status:"",feasibility:0,feasNote:"",owns:[],skills:[],quarters:[]},
-  {y:2,period:"Năm 2",theme:"",col:C.grn,icon:"⚡",identity:"",mantra:"",pct:0,income:"",metric:"",status:"",feasibility:0,feasNote:"",owns:[],skills:[],quarters:[]},
-  {y:3,period:"Năm 3",theme:"",col:C.pur,icon:"🚀",identity:"",mantra:"",pct:0,income:"",metric:"",status:"",feasibility:0,feasNote:"",owns:[],skills:[],quarters:[]},
-  {y:4,period:"Năm 4",theme:"",col:C.gold,icon:"👑",identity:"",mantra:"",pct:0,income:"",metric:"",status:"",feasibility:0,feasNote:"",owns:[],skills:[],quarters:[]},
-  {y:5,period:"Năm 5",theme:"",col:C.org,icon:"🏛️",identity:"",mantra:"",pct:0,income:"",metric:"",status:"",feasibility:0,feasNote:"",owns:[],skills:[],quarters:[]},
+  {y:1,period:"2026",theme:"Người Xây Móng",col:C.blu,icon:"🔧",identity:"Junior AI Builder",mantra:"Mỗi ngày một brick. Consistency beats talent.",pct:30,income:"$0 → $500/tháng",metric:"51 agents · 500 queries/ngày",status:"🟡 Đang xây — BẠN ĐANG Ở ĐÂY",feasibility:85,feasNote:"Cao — công nghệ đã sẵn, roadmap rõ, chỉ cần consistency.",
+    owns:["51 agents hoạt động với prompt đầy đủ","Council Mode: hỏi 1 → 4-8 agents trả lời song song","RAG với 100+ tài liệu được index","Daily briefing tự động 7h sáng qua Telegram bot","Chat UI mobile-friendly chạy ổn định","Chi phí vận hành < $30/tháng"],
+    skills:["TypeScript","Cloudflare Workers","Prompt Engineering","RAG Pipeline","API Design"],
+    quarters:[
+      {q:"Q1",t:"Foundation",items:["Đọc 3 cuốn cốt lõi","Deploy Empire Council production","Hoàn thành Setup 13 bước","Thiết lập routine sáng"]},
+      {q:"Q2",t:"Kỹ Năng Kỹ Thuật",items:["Master TypeScript, async/await, REST API","Build RAG pipeline với 50+ tài liệu","Integrate Telegram bot","Biết đọc và debug AI API responses"]},
+      {q:"Q3",t:"Hệ Thống Cá Nhân",items:["PKM kết nối với Council","Tiếng Anh: nghe hiểu 80% podcast business","Tiếng Trung: HSK2","Bắt đầu monetize: 1-2 freelance AI setup"]},
+      {q:"Q4",t:"Portfolio Đầu Tiên",items:["1 case study thực tế","Viết 10 bài về AI builder journey","Network với 10-20 người","Review năm: điều chỉnh roadmap"]}
+    ]},
+  {y:2,period:"2027",theme:"Người Bán Trí Tuệ",col:C.grn,icon:"⚡",identity:"AI Systems Consultant",mantra:"Bán giải pháp, không bán thời gian.",pct:55,income:"$0 → $5,000/tháng",metric:"5-10 paying clients · white-label ready",status:"🟢 Consulting Mode",feasibility:72,feasNote:"Khá cao — nếu Năm 1 build xong. Risk: tìm clients thật trả tiền.",
+    owns:["White-label: deploy Council cho client","Multi-user architecture","Workflow engine: sequences tự động","MCP Server: gọi Council từ Claude Code","Analytics dashboard","Template library cho các ngành"],
+    skills:["SaaS Architecture","Multi-tenant","Sales System","Technical Writing","Team Lead"],
+    quarters:[
+      {q:"Q1",t:"Clients Đầu Tiên",items:["Setup Council cho 3 khách hàng — miễn phí","Document mọi setup step","Học: multi-tenant architecture","Build case study với số liệu"]},
+      {q:"Q2",t:"Monetize Đầu Tiên",items:["$300-500/setup + $50-100/tháng","5 paying clients → $250-500 MRR","Tự động hóa onboarding","Referral hệ thống"]},
+      {q:"Q3",t:"Scale Operations",items:["Revenue $2,000-3,000/tháng","Thuê 1 junior dev part-time","Tiếng Anh: confident business calls","Tiếng Trung: HSK3"]},
+      {q:"Q4",t:"Product Thinking",items:["Productized service với fixed pricing","Landing page + checkout tự động","Revenue $4,000-5,000/tháng","Quyết định: lifestyle vs SaaS?"]}
+    ]},
+  {y:3,period:"2028",theme:"Người Xây Sản Phẩm",col:C.pur,icon:"🚀",identity:"AI Product Builder",mantra:"Sản phẩm tốt là nhân viên không bao giờ nghỉ.",pct:75,income:"$20,000–30,000 MRR",metric:"500+ active users · $20K MRR",status:"🚀 SaaS Product",feasibility:55,feasNote:"Trung bình — cần product-market fit thực sự.",
+    owns:["SaaS platform: self-service signup, billing","Custom knowledge base","Public API","Mobile app React Native","Voice interface","Autonomous Council"],
+    skills:["Product Management","Growth Hacking","Community Building","Fundraising Basics","Team Management"],
+    quarters:[
+      {q:"Q1",t:"Launch SaaS v1",items:["$49/tháng Basic · $149/tháng Pro","100 beta users, churn < 15%","SEO + content: 10 bài/tháng"]},
+      {q:"Q2",t:"Growth Engine",items:["Product Hunt launch","Integration: Notion, Google Workspace","Affiliate 20% recurring","MRR $10,000"]},
+      {q:"Q3",t:"Niche Domination",items:["Focus 1 niche: Vietnam SME","Discord community: 1,000 members","Workshop/course $200-500/người"]},
+      {q:"Q4",t:"Team & Delegation",items:["Team 3-5 người","MRR $20,000-30,000","Quyết định: raise seed hay bootstrapped?"]}
+    ]},
+  {y:4,period:"2029",theme:"Người Có Tầm Ảnh Hưởng",col:C.gold,icon:"👑",identity:"AI Thought Leader",mantra:"Influence nhân rộng impact.",pct:88,income:"$50,000–70,000 MRR + investments",metric:"2,000+ users · 3 countries",status:"🌐 Platform Scale",feasibility:40,feasNote:"Khó — phụ thuộc nhiều vào execution Năm 3.",
+    owns:["Enterprise tier","Multi-language: Vietnamese, English, Thai","Agent Marketplace","Council OS framework","Real-time collaboration","Predictive Council"],
+    skills:["Public Speaking","Angel Investing","Executive Leadership","Global Expansion","Brand Authority"],
+    quarters:[
+      {q:"Q1",t:"Authority Building",items:["Book: 'Hội Đồng AI — 51 Cố Vấn Thiên Tài'","Podcast/YouTube: 50+ episodes","Speaking tại Techfest Vietnam"]},
+      {q:"Q2",t:"Ecosystem Builder",items:["Open-source core engine","Partner với universities","Council Certification Program"]},
+      {q:"Q3",t:"Đầu Tư & Scale",items:["Angel invest 3-5 AI startups","MRR $50,000-70,000","Expand sang Singapore, Thailand"]},
+      {q:"Q4",t:"Legacy Foundation",items:["Empire Council Foundation","Team 15-20 người","Bạn là chairman"]}
+    ]},
+  {y:5,period:"2030",theme:"Người Vận Hành Đế Chế",col:C.org,icon:"🏛️",identity:"Empire Architect",mantra:"Đế chế thật sự là khi nó chạy mà không cần bạn.",pct:97,income:"$100,000+/tháng · Time Freedom",metric:"1M+ users · industry standard",status:"🏛️ Autonomous",feasibility:30,feasNote:"Tham vọng nhưng không impossible — mỗi năm execute đúng là đến được.",
+    owns:["Fully autonomous operations","AGI-ready architecture","1M+ queries/ngày","Council Network: 100+ communities","Physical presence: AI advisory pods","Open Protocol: industry standard"],
+    skills:["Vision Setting","Capital Allocation","Legacy Design","Systems Thinking","Philosophy"],
+    quarters:[
+      {q:"Q1–Q2",t:"Full Autonomy",items:["Company vận hành không cần daily tasks","Revenue $100,000+/tháng","Test: biến mất 2 tháng, business vẫn grow"]},
+      {q:"Q3–Q4",t:"Đế Chế Tiếp Theo",items:["Venture fund Empire AI Capital","Council 2.0: physical + digital centers","Câu hỏi: 'Tôi muốn xây gì tiếp theo?'"]}
+    ]},
 ];
 const YEARS_KEY = "empire_years_v2";
 const loadYears = () => { try { const s=localStorage.getItem(YEARS_KEY); return s?JSON.parse(s):DEFAULT_YEARS; } catch { return DEFAULT_YEARS; } };
@@ -2560,6 +2598,14 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
               </div>
               <p style={{fontSize:19,fontWeight:800,color:"#fff",margin:"0 0 6px"}}>{yr.icon} {yr.identity||"Chưa có identity"}</p>
               <p style={{fontSize:13,color:C.mu,margin:"0 0 10px",lineHeight:1.6,fontStyle:"italic"}}>"{yr.mantra||"Nhập mantra của bạn..."}"</p>
+              {yr.y===5&&<div style={{background:"linear-gradient(135deg,#f9731610,#f5c84210)",border:"1px solid #f9731630",borderRadius:8,padding:"8px 12px",marginBottom:10}}>
+                <p style={{fontFamily:"monospace",fontSize:"9px",color:"#f97316",margin:"0 0 2px",letterSpacing:"1.5px"}}>🎯 MỤC TIÊU TỐI THƯỢNG</p>
+                <p style={{fontSize:11,color:"#f5c842",margin:0,fontWeight:600}}>Muốn đến đây càng sớm càng tốt — mỗi năm execute đúng là rút ngắn được timeline.</p>
+              </div>}
+              {yr.feasNote&&<div style={{background:"rgba(255,255,255,0.04)",borderRadius:6,padding:"6px 10px",marginBottom:10}}>
+                <p style={{fontFamily:"monospace",fontSize:"8px",color:C.mu,margin:"0 0 2px"}}>⚡ KHẢ THI</p>
+                <p style={{fontSize:11,color:yr.col,margin:0}}>{yr.feasNote}</p>
+              </div>}
               {yrEdit&&(<div style={{background:"rgba(0,0,0,0.5)",border:`1px solid ${yr.col}40`,borderRadius:10,padding:"12px",marginBottom:12}}>
                 <p style={{fontFamily:FM,fontSize:"9px",color:yr.col,margin:"0 0 8px"}}>✏️ CHỈNH SỬA NĂM {yr.y}</p>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
@@ -2585,6 +2631,10 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
                   <button onClick={()=>setYrEdit(false)} style={{padding:"7px 12px",borderRadius:6,background:"transparent",border:"1px solid #333",color:"#888",fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>Hủy</button>
                 </div>
               </div>)}
+              {(yr.income||yr.metric)&&<div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                {yr.income&&<span style={{fontFamily:"monospace",fontSize:"9px",padding:"3px 10px",borderRadius:6,background:"#22c55e15",border:"1px solid #22c55e30",color:"#22c55e"}}>💰 {yr.income}</span>}
+                {yr.metric&&<span style={{fontFamily:"monospace",fontSize:"9px",padding:"3px 10px",borderRadius:6,background:"#60a5fa15",border:"1px solid #60a5fa30",color:"#60a5fa"}}>📊 {yr.metric}</span>}
+              </div>}
               <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>{(yr.skills||[]).map(s=><span key={s} style={{fontFamily:FM,fontSize:"9px",padding:"3px 8px",borderRadius:10,background:`${yr.col}15`,color:yr.col}}>{s}</span>)}</div>
               <div style={{display:"flex",gap:5,marginBottom:12}}>
                 {[["owns","⚙️ Empire Sở Hữu"],["quarters","📋 Kế Hoạch Quý"]].map(([v,l])=>(
