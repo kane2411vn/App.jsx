@@ -925,6 +925,8 @@ export default function App() {
   const [selSch,setSelSch]       = useState(()=>localStorage.getItem("empire_gym_sch")||"ppl-ul");
   const [exDone,setExDone]       = useState(new Set());
   const [waterCups,setWaterCups] = useState(()=>{try{return Number(localStorage.getItem("empire_water")||0);}catch{return 0;}});
+  const [menuCat,setMenuCat]     = useState(0);
+  const [menuSearch,setMenuSearch] = useState("");
   // ── Pomodoro states ─────────────────────────────────────────
   const [pom,setPom]           = useState({running:false,mode:"work",elapsed:0,work:25,brk:5,sessions:0});
   const [pomExpanded,setPomExpanded] = useState(false);
@@ -3115,8 +3117,7 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
                   ]},
                 ];
 
-                const [menuCat, setMenuCat] = React.useState(0);
-                const [menuSearch, setMenuSearch] = React.useState("");
+                // menuCat/menuSearch are top-level states
                 const cat = MENU[menuCat];
                 const filtered = menuSearch ? MENU.flatMap(c=>c.items).filter(x=>x.n.toLowerCase().includes(menuSearch.toLowerCase())) : cat.items;
                 const totalItems = MENU.reduce((s,c)=>s+c.items.length,0);
