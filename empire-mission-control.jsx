@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 
 // ─── FONTS & DESIGN TOKENS ───────────────────────────────────────────────────
 const GF = "https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap";
@@ -950,7 +950,7 @@ export default function App() {
   // ── Pomodoro states ─────────────────────────────────────────
   const [pom,setPom]           = useState({running:false,mode:"work",elapsed:0,work:25,brk:5,sessions:0});
   const [pomExpanded,setPomExpanded] = useState(false);
-  const pomRef = React.useRef(null);
+  const pomRef = useRef(null);
   const saveKb = (u)=>{ setKb(u); try { localStorage.setItem("empire_kb",JSON.stringify(u)); } catch {} };
 
   // ── Auth handlers (after all states) ──────────────────────
