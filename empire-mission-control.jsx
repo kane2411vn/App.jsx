@@ -346,6 +346,34 @@ function NotifPanel({ notifications, onRead, onClear, onClose }) {
             </div>
           );
         })}
+      {/* ── Floating Pomodoro Widget ─────────────────────────────── */}
+      {tab!=="pomodoro"&&(
+        <div onClick={()=>setTab("pomodoro")}
+          style={{position:"fixed",bottom:isMobile?80:24,right:16,zIndex:500,cursor:"pointer",
+            background:pom.running?"#f9731620":C.s1,border:`1px solid ${pom.running?"#f97316":C.bd}`,
+            borderRadius:12,padding:"8px 14px",display:"flex",alignItems:"center",gap:8,
+            boxShadow:pom.running?"0 0 20px #f9731640":"none",transition:"all .3s",animation:pom.running?"none":"none"}}>
+          {(()=>{
+            const limit=(pom.mode==="work"?pom.work:pom.brk)*60;
+            const remaining=limit-pom.elapsed;
+            const mm=String(Math.floor(remaining/60)).padStart(2,"0");
+            const ss=String(remaining%60).padStart(2,"0");
+            return(
+              <>
+                <span style={{fontSize:16}}>{pom.running?"🔥":"⏱️"}</span>
+                <span style={{fontFamily:FM,fontSize:12,fontWeight:700,color:pom.running?"#f97316":"#fff"}}>{mm}:{ss}</span>
+                <button onClick={e=>{e.stopPropagation();setPom(p=>({...p,running:!p.running}));}}
+                  style={{width:22,height:22,borderRadius:5,background:pom.running?"#F8717120":"#f9731618",
+                    border:`1px solid ${pom.running?"#F87171":"#f97316"}`,color:pom.running?"#F87171":"#f97316",
+                    fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  {pom.running?"⏸":"▶"}
+                </button>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
       </div>
     </div>
   );
@@ -556,20 +584,297 @@ function ChatTab({ sessions, activeSessId, sessMessages, sessReady, sidebarOpen,
             <InputBar val={aIn} set={setAIn} onSend={sendAgent} busy={aBusy} ph={`Nhắn ${activeAg.n}…`} col={activeAg.col}/>
           </div>
         )}
+      {/* ── Floating Pomodoro Widget ─────────────────────────────── */}
+      {tab!=="pomodoro"&&(
+        <div onClick={()=>setTab("pomodoro")}
+          style={{position:"fixed",bottom:isMobile?80:24,right:16,zIndex:500,cursor:"pointer",
+            background:pom.running?"#f9731620":C.s1,border:`1px solid ${pom.running?"#f97316":C.bd}`,
+            borderRadius:12,padding:"8px 14px",display:"flex",alignItems:"center",gap:8,
+            boxShadow:pom.running?"0 0 20px #f9731640":"none",transition:"all .3s",animation:pom.running?"none":"none"}}>
+          {(()=>{
+            const limit=(pom.mode==="work"?pom.work:pom.brk)*60;
+            const remaining=limit-pom.elapsed;
+            const mm=String(Math.floor(remaining/60)).padStart(2,"0");
+            const ss=String(remaining%60).padStart(2,"0");
+            return(
+              <>
+                <span style={{fontSize:16}}>{pom.running?"🔥":"⏱️"}</span>
+                <span style={{fontFamily:FM,fontSize:12,fontWeight:700,color:pom.running?"#f97316":"#fff"}}>{mm}:{ss}</span>
+                <button onClick={e=>{e.stopPropagation();setPom(p=>({...p,running:!p.running}));}}
+                  style={{width:22,height:22,borderRadius:5,background:pom.running?"#F8717120":"#f9731618",
+                    border:`1px solid ${pom.running?"#F87171":"#f97316"}`,color:pom.running?"#F87171":"#f97316",
+                    fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  {pom.running?"⏸":"▶"}
+                </button>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
       </div>
     </div>
   );
 }
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
+// ─── SUPABASE CONFIG ─────────────────────────────────────────────────────────
+const SUPA_URL = "https://tctdtriwrheezkathuju.supabase.co";
+const SUPA_KEY = "sb_publishable_FPdg9G4kuVt6439_RJ7ZRA_2ucSc6gM";
+
+const supa = {
+  url: SUPA_URL,
+  headers: { "apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}`, "Content-Type": "application/json", "Prefer": "return=representation" },
+
+  async signUp(email, password, name, inviteCode) {
+    // Check invite code first
+    const ir = await fetch(`${SUPA_URL}/rest/v1/invites?code=eq.${encodeURIComponent(inviteCode)}&used_by=is.null`, { headers: this.headers });
+    const invites = await ir.json();
+    if (!invites?.length) throw new Error("Mã mời không hợp lệ hoặc đã được dùng.");
+
+    // Sign up
+    const r = await fetch(`${SUPA_URL}/auth/v1/signup`, {
+      method: "POST", headers: this.headers,
+      body: JSON.stringify({ email, password })
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error.message || d.msg || "Đăng ký thất bại");
+    const uid = d.user?.id;
+    const token = d.access_token;
+    if (!uid) throw new Error("Không lấy được user ID");
+
+    // Create profile
+    const authHeaders = { ...this.headers, "Authorization": `Bearer ${token}` };
+    await fetch(`${SUPA_URL}/rest/v1/profiles`, {
+      method: "POST", headers: authHeaders,
+      body: JSON.stringify({ id: uid, name, telegram_chat_id: "", timezone: "Asia/Ho_Chi_Minh" })
+    });
+
+    // Init user_data
+    await fetch(`${SUPA_URL}/rest/v1/user_data`, {
+      method: "POST", headers: authHeaders,
+      body: JSON.stringify({ user_id: uid })
+    });
+
+    // Mark invite used
+    await fetch(`${SUPA_URL}/rest/v1/invites?code=eq.${encodeURIComponent(inviteCode)}`, {
+      method: "PATCH", headers: this.headers,
+      body: JSON.stringify({ used_by: uid, used_at: new Date().toISOString() })
+    });
+
+    return { uid, token, email, name };
+  },
+
+  async signIn(email, password) {
+    const r = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST", headers: this.headers,
+      body: JSON.stringify({ email, password })
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error.message || "Email hoặc mật khẩu sai");
+    return { uid: d.user.id, token: d.access_token, email: d.user.email, name: d.user.user_metadata?.name };
+  },
+
+  async signOut(token) {
+    await fetch(`${SUPA_URL}/auth/v1/logout`, { method: "POST", headers: { ...this.headers, "Authorization": `Bearer ${token}` } });
+  },
+
+  async getProfile(uid, token) {
+    const r = await fetch(`${SUPA_URL}/rest/v1/profiles?id=eq.${uid}`, { headers: { ...this.headers, "Authorization": `Bearer ${token}` } });
+    const d = await r.json();
+    return d?.[0] || null;
+  },
+
+  async getUserData(uid, token) {
+    const r = await fetch(`${SUPA_URL}/rest/v1/user_data?user_id=eq.${uid}`, { headers: { ...this.headers, "Authorization": `Bearer ${token}` } });
+    const d = await r.json();
+    return d?.[0] || null;
+  },
+
+  async saveUserData(uid, token, patch) {
+    await fetch(`${SUPA_URL}/rest/v1/user_data?user_id=eq.${uid}`, {
+      method: "PATCH",
+      headers: { ...this.headers, "Authorization": `Bearer ${token}`, "Prefer": "return=minimal" },
+      body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() })
+    });
+  },
+
+  async updateProfile(uid, token, patch) {
+    await fetch(`${SUPA_URL}/rest/v1/profiles?id=eq.${uid}`, {
+      method: "PATCH",
+      headers: { ...this.headers, "Authorization": `Bearer ${token}`, "Prefer": "return=minimal" },
+      body: JSON.stringify(patch)
+    });
+  },
+};
+
+// ─── AUTH SCREEN ─────────────────────────────────────────────────────────────
+function AuthScreen({ onAuth }) {
+  const [mode, setMode] = useState("login"); // login | signup
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [invite, setInvite] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const FM = "'Space Mono',monospace";
+  const F  = "'Syne',system-ui,sans-serif";
+  const C  = { bg:"#0D0F14", s1:"#13141C", bd:"rgba(255,255,255,0.07)", gold:"#F5C842", mu:"rgba(232,227,216,0.45)", txt:"#E8E3D8", red:"#F87171" };
+
+  const submit = async () => {
+    setErr(""); setLoading(true);
+    try {
+      let result;
+      if (mode === "login") {
+        result = await supa.signIn(email, password);
+      } else {
+        if (!name.trim()) throw new Error("Nhập tên của bạn");
+        if (!invite.trim()) throw new Error("Nhập mã mời");
+        result = await supa.signUp(email, password, name.trim(), invite.trim().toUpperCase());
+      }
+      // Load user data from Supabase
+      const userData = await supa.getUserData(result.uid, result.token);
+      const profile  = await supa.getProfile(result.uid, result.token);
+      onAuth({ ...result, profile, userData });
+    } catch(e) {
+      setErr(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:F}}>
+      <div style={{width:"100%",maxWidth:360}}>
+        {/* Logo */}
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <p style={{fontSize:40,margin:"0 0 8px"}}>🏛️</p>
+          <p style={{fontFamily:FM,fontSize:"9px",color:C.gold,letterSpacing:"3px",margin:"0 0 4px"}}>KGT EMPIRE</p>
+          <p style={{fontSize:20,fontWeight:800,color:"#fff",margin:0}}>Mission Control</p>
+        </div>
+
+        {/* Mode toggle */}
+        <div style={{display:"flex",background:C.s1,borderRadius:10,padding:4,marginBottom:20,border:`1px solid ${C.bd}`}}>
+          {[["login","Đăng nhập"],["signup","Đăng ký"]].map(([m,l])=>(
+            <button key={m} onClick={()=>{setMode(m);setErr("");}}
+              style={{flex:1,padding:"8px",borderRadius:7,border:"none",background:mode===m?`${C.gold}18`:"transparent",color:mode===m?C.gold:C.mu,fontFamily:FM,fontSize:"9px",cursor:"pointer",fontWeight:mode===m?700:400}}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {/* Form */}
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {mode==="signup"&&(
+            <input placeholder="Tên của bạn" value={name} onChange={e=>setName(e.target.value)}
+              style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:8,color:C.txt,padding:"11px 14px",fontSize:13,outline:"none"}}/>
+          )}
+          <input placeholder="Email" type="email" value={email} onChange={e=>setEmail(e.target.value)}
+            style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:8,color:C.txt,padding:"11px 14px",fontSize:13,outline:"none"}}/>
+          <input placeholder="Mật khẩu" type="password" value={password} onChange={e=>setPassword(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&submit()}
+            style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:8,color:C.txt,padding:"11px 14px",fontSize:13,outline:"none"}}/>
+          {mode==="signup"&&(
+            <input placeholder="Mã mời (VD: EMPIRE2026)" value={invite} onChange={e=>setInvite(e.target.value)}
+              style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:8,color:C.txt,padding:"11px 14px",fontSize:13,outline:"none"}}/>
+          )}
+
+          {err&&<p style={{color:C.red,fontFamily:FM,fontSize:"10px",margin:0,padding:"6px 10px",background:"rgba(248,113,113,0.08)",borderRadius:6}}>{err}</p>}
+
+          <button onClick={submit} disabled={loading}
+            style={{padding:"12px",borderRadius:8,background:loading?"rgba(245,200,66,0.3)":`${C.gold}22`,border:`1px solid ${C.gold}60`,color:C.gold,fontFamily:FM,fontSize:"10px",fontWeight:700,cursor:loading?"not-allowed":"pointer",marginTop:4}}>
+            {loading?"Đang xử lý...":(mode==="login"?"🚀 ĐĂNG NHẬP":"✨ TẠO TÀI KHOẢN")}
+          </button>
+        </div>
+
+        <p style={{textAlign:"center",fontFamily:FM,fontSize:"9px",color:C.mu,marginTop:20}}>
+          Cần mã mời để đăng ký · Liên hệ admin
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  // ── Auth state ────────────────────────────────────────────────
+  const [auth, setAuth] = useState(()=>{
+    try {
+      const saved = localStorage.getItem("empire_auth");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
+  const handleAuth = (authData) => {
+    const toSave = { uid: authData.uid, token: authData.token, email: authData.email, name: authData.name };
+    localStorage.setItem("empire_auth", JSON.stringify(toSave));
+    setAuth(toSave);
+    // Load remote data into local state if available
+    if (authData.userData) {
+      const ud = authData.userData;
+      if (ud.sessions?.length) setSessions(ud.sessions);
+      if (ud.memories?.length) setMems(ud.memories);
+      if (ud.decisions?.length) setDecisions(ud.decisions);
+      if (ud.fin_txs?.length) setFinTxs(ud.fin_txs);
+      if (ud.fin_debts?.length) setFinDebts(ud.fin_debts);
+      if (ud.okrs?.length) setOkrs(ud.okrs);
+      if (ud.ratings && Object.keys(ud.ratings).length) setRatings(ud.ratings);
+      if (ud.setup_done?.length) setSDone(new Set(ud.setup_done));
+      if (ud.sched_done?.length) setScDone(new Set(ud.sched_done));
+    }
+    if (authData.profile?.telegram_chat_id) setTelegramChatId(authData.profile.telegram_chat_id);
+  };
+
+  const handleSignOut = async () => {
+    if (auth?.token) { try { await supa.signOut(auth.token); } catch {} }
+    localStorage.removeItem("empire_auth");
+    setAuth(null);
+  };
+
+  // Auto-save to Supabase every 30s when logged in
+  useEffect(()=>{
+    if (!auth?.uid) return;
+    const id = setInterval(async ()=>{
+      try {
+        await supa.saveUserData(auth.uid, auth.token, {
+          fin_txs: finTxs, fin_debts: finDebts, okrs,
+          decisions, ratings,
+          setup_done: [...sDone], sched_done: [...scDone],
+        });
+      } catch {}
+    }, 30000);
+    return () => clearInterval(id);
+  }, [auth, finTxs, finDebts, okrs, decisions, ratings, sDone, scDone]);
+
   const [tab,setTab] = useState("council");
   const [isMobile,setIsMobile] = useState(()=>typeof window!=="undefined"&&window.innerWidth<640);
+  const [telegramChatId,setTelegramChatId] = useState("");
+  const [showProfile,setShowProfile] = useState(false);
   useEffect(()=>{
     const fn=()=>setIsMobile(window.innerWidth<640);
     window.addEventListener("resize",fn);
     return()=>window.removeEventListener("resize",fn);
   },[]);
+  // Pomodoro timer tick
+  useEffect(()=>{
+    if(!pom.running) return;
+    const limit=(pom.mode==="work"?pom.work:pom.brk)*60;
+    const id=setInterval(()=>{
+      setPom(p=>{
+        if(!p.running) return p;
+        const next=p.elapsed+1;
+        if(next>=limit){
+          // switch mode
+          const newMode=p.mode==="work"?"break":"work";
+          const newSess=p.mode==="work"?p.sessions+1:p.sessions;
+          try{new Audio("https://www.soundjay.com/buttons/sounds/button-09.mp3").play();}catch{}
+          return{...p,mode:newMode,elapsed:0,sessions:newSess,running:false};
+        }
+        return{...p,elapsed:next};
+      });
+    },1000);
+    pomRef.current=id;
+    return()=>clearInterval(id);
+  },[pom.running,pom.mode,pom.work,pom.brk]);
   const [sDone,setSDone]   = useState(()=>new Set());
   const [scDone,setScDone] = useState(()=>new Set());
   // Council
@@ -687,6 +992,26 @@ export default function App() {
   const [selYear,setSelYear] = useState(1);
   const [yrView,setYrView]   = useState("owns");
   const [openStep,setOpenStep] = useState("s1");
+  // ── Finance states ──────────────────────────────────────────
+  const [finTxs,setFinTxs]     = useState(()=>{try{return JSON.parse(localStorage.getItem("empire_fin_txs")||"[]");}catch{return[];}});
+  const [finDebts,setFinDebts] = useState(()=>{try{return JSON.parse(localStorage.getItem("empire_fin_debts")||JSON.stringify([
+    {id:"d1",n:"Nợ Mẹ",total:200000000,paid:0,col:"#ef4444",pri:1},
+    {id:"d2",n:"Finance Nhóm 5",total:50000000,paid:0,col:"#f97316",pri:2},
+    {id:"d3",n:"Holding",total:26000000,paid:0,col:"#60a5fa",pri:3},
+  ]));}catch{return[];}});
+  const [finIn,setFinIn]       = useState({type:"expense",amount:"",cat:"Ăn uống",note:"",date:new Date().toISOString().slice(0,10)});
+  const [finCur,setFinCur]     = useState("VND"); // VND | USD
+  const [finView,setFinView]   = useState("overview"); // overview | debts | roadmap
+  const saveFinTxs = u=>{setFinTxs(u);try{localStorage.setItem("empire_fin_txs",JSON.stringify(u));}catch{}};
+  const saveFinDebts = u=>{setFinDebts(u);try{localStorage.setItem("empire_fin_debts",JSON.stringify(u));}catch{}};
+  // ── Goal / OKR states ──────────────────────────────────────
+  const [okrs,setOkrs]         = useState(()=>{try{return JSON.parse(localStorage.getItem("empire_okrs")||"[]");}catch{return[];}});
+  const [okrForm,setOkrForm]   = useState({show:false,obj:"",krs:[""]});
+  const saveOkrs = u=>{setOkrs(u);try{localStorage.setItem("empire_okrs",JSON.stringify(u));}catch{}};
+  // ── Pomodoro states ─────────────────────────────────────────
+  const [pom,setPom]           = useState({running:false,mode:"work",elapsed:0,work:25,brk:5,sessions:0});
+  const [pomExpanded,setPomExpanded] = useState(false);
+  const pomRef = React.useRef(null);
   const saveKb = (u)=>{ setKb(u); try { localStorage.setItem("empire_kb",JSON.stringify(u)); } catch {} };
 
   // Derived chat
@@ -1025,6 +1350,9 @@ export default function App() {
     {id:"setup",label:"⚙️ Setup",badge:`${sPct}%`,color:C.blu},
     {id:"roadmap",label:"🗺 5 Năm",badge:"2026–2030",color:C.org},
     {id:"knowledge",label:"📚 KB",badge:`${kbTotal}`,color:"#F59E0B"},
+    {id:"finance",label:"💰 Finance",badge:`${finTxs.filter(t=>t.date===new Date().toISOString().slice(0,10)).length}tx`,color:"#34D399"},
+    {id:"goals",label:"🎯 Goals",badge:`${okrs.length}`,color:"#a78bfa"},
+    {id:"pomodoro",label:"⏱️ Focus",badge:`${pom.sessions}🍅`,color:"#f97316"},
   ];
 
   // ── Council session management ────────────────────────────────────────────
@@ -1220,10 +1548,18 @@ export default function App() {
   };
 
   // ══ RENDER ════════════════════════════════════════════════════════════════
+  // Show auth screen if not logged in
+  if (!auth) return <AuthScreen onAuth={handleAuth}/>;
+
   return (
     <div style={{fontFamily:F,minHeight:"100vh",background:C.bg,color:C.txt,display:"flex",flexDirection:"column"}}>
       <link rel="stylesheet" href={GF}/>
       <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+      <meta name="theme-color" content="#0D0F14"/>
+      <meta name="apple-mobile-web-app-capable" content="yes"/>
+      <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+      <meta name="apple-mobile-web-app-title" content="Empire Council"/>
+      <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛️</text></svg>"/>
       <style>{`
         @keyframes dot{0%,100%{opacity:.25;transform:scale(.7)}50%{opacity:1;transform:scale(1)}}
         @keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
@@ -1274,6 +1610,37 @@ export default function App() {
                       onRead={()=>{const u=notifications.map(n=>({...n,read:true}));setNotifications(u);try{localStorage.setItem("empire_notifs",JSON.stringify(u));}catch{}}}
                       onClear={()=>{setNotifications([]);try{localStorage.removeItem("empire_notifs");}catch{}}}
                       onClose={()=>setShowNotifs(false)}/>
+                  </div>
+                )}
+              </div>
+              {/* 👤 User Avatar + Menu */}
+              <div style={{position:"relative"}}>
+                <button onClick={()=>setShowProfile(p=>!p)}
+                  style={{width:34,height:34,borderRadius:"50%",background:`${C.gold}22`,border:`1px solid ${C.gold}50`,color:C.gold,fontFamily:FM,fontSize:"11px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  {auth?.name?auth.name[0].toUpperCase():"U"}
+                </button>
+                {showProfile&&(
+                  <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",zIndex:300,width:220,background:C.s2,border:`1px solid ${C.bd}`,borderRadius:10,padding:"12px",animation:"slideIn .15s ease"}}>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:C.gold,margin:"0 0 4px"}}>ĐANG ĐĂNG NHẬP</p>
+                    <p style={{fontSize:13,fontWeight:600,color:"#fff",margin:"0 0 2px"}}>{auth?.name||"User"}</p>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:"0 0 12px"}}>{auth?.email}</p>
+                    <div style={{borderTop:`1px solid ${C.bd}`,paddingTop:10,marginTop:2}}>
+                      <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:"0 0 6px"}}>📱 TELEGRAM CHAT ID</p>
+                      <div style={{display:"flex",gap:6}}>
+                        <input value={telegramChatId} onChange={e=>setTelegramChatId(e.target.value)}
+                          placeholder="Lấy từ @userinfobot"
+                          style={{flex:1,background:"#111",border:`1px solid ${C.bd}`,borderRadius:5,color:"#fff",padding:"5px 8px",fontSize:11}}/>
+                        <button onClick={async()=>{
+                          if(!auth?.uid||!auth?.token) return;
+                          await supa.updateProfile(auth.uid,auth.token,{telegram_chat_id:telegramChatId});
+                          setShowProfile(false);
+                        }} style={{padding:"5px 8px",borderRadius:5,background:"#34D39920",border:"1px solid #34D39940",color:"#34D399",fontSize:10,cursor:"pointer"}}>✓</button>
+                      </div>
+                    </div>
+                    <button onClick={()=>{setShowProfile(false);handleSignOut();}}
+                      style={{width:"100%",marginTop:10,padding:"8px",borderRadius:6,background:"rgba(248,113,113,0.08)",border:"1px solid rgba(248,113,113,0.2)",color:"#F87171",fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>
+                      🚪 Đăng xuất
+                    </button>
                   </div>
                 )}
               </div>
@@ -2145,7 +2512,346 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
           </div>
         )}
 
+
+        {/* ════ FINANCE ════ */}
+        {tab==="finance"&&(
+          <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:isMobile?"10px 12px 80px":"14px 20px 40px",boxSizing:"border-box"}}>
+            {/* Currency + View toggle */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <p style={{fontFamily:FM,fontSize:"9px",color:"#34D399",letterSpacing:"2px",margin:0}}>💰 FINANCE OS</p>
+              <div style={{display:"flex",gap:6}}>
+                {["VND","USD"].map(c=><button key={c} onClick={()=>setFinCur(c)}
+                  style={{padding:"3px 10px",borderRadius:6,border:"1px solid "+(finCur===c?"#34D399":"#333"),background:finCur===c?"#34D39918":"transparent",color:finCur===c?"#34D399":C.mu,fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>{c}</button>)}
+              </div>
+            </div>
+
+            {/* Overview KPIs */}
+            {(()=>{
+              const usd=25000;
+              const fmt=n=>finCur==="VND"?new Intl.NumberFormat("vi-VN").format(n)+"đ":"$"+new Intl.NumberFormat("en-US").format(Math.round(n/usd));
+              const thisMonth=new Date().toISOString().slice(0,7);
+              const monthTxs=finTxs.filter(t=>t.date&&t.date.slice(0,7)===thisMonth);
+              const thu=monthTxs.filter(t=>t.type==="income").reduce((s,t)=>s+Number(t.amount),0);
+              const chi=monthTxs.filter(t=>t.type==="expense").reduce((s,t)=>s+Number(t.amount),0);
+              const tietKiem=thu-chi;
+              const totalDebt=finDebts.reduce((s,d)=>s+(d.total-d.paid),0);
+              const netWorth=-totalDebt+tietKiem;
+              return(
+                <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:14}}>
+                  {[["📈 Thu tháng",fmt(thu),"#34D399"],["📉 Chi tháng",fmt(chi),"#F87171"],["💰 Tiết kiệm",fmt(tietKiem),tietKiem>=0?"#34D399":"#F87171"],["🏦 Net Worth",fmt(netWorth),netWorth>=0?"#34D399":"#F87171"]].map(([l,v,col])=>(
+                    <div key={l} style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"12px 14px"}}>
+                      <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 4px"}}>{l}</p>
+                      <p style={{fontFamily:FM,fontSize:16,fontWeight:700,color:col,margin:0}}>{v||"0đ"}</p>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* Quick Add Transaction */}
+            <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"12px 14px",marginBottom:14}}>
+              <p style={{fontFamily:FM,fontSize:"9px",color:"#34D399",letterSpacing:"2px",margin:"0 0 10px"}}>⚡ THÊM GIAO DỊCH</p>
+              <div style={{display:"flex",gap:6,marginBottom:8}}>
+                {["expense","income"].map(tp=>(
+                  <button key={tp} onClick={()=>setFinIn(p=>({...p,type:tp}))}
+                    style={{flex:1,padding:"6px",borderRadius:6,border:"1px solid "+(finIn.type===tp?(tp==="expense"?"#F87171":"#34D399"):"#333"),background:finIn.type===tp?(tp==="expense"?"#F8717118":"#34D39918"):"transparent",color:finIn.type===tp?(tp==="expense"?"#F87171":"#34D399"):C.mu,fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>
+                    {tp==="expense"?"📉 Chi tiêu":"📈 Thu nhập"}
+                  </button>
+                ))}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+                <input placeholder="Số tiền (VD: 35000)" type="number" value={finIn.amount}
+                  onChange={e=>setFinIn(p=>({...p,amount:e.target.value}))}
+                  style={{background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"7px 10px",fontSize:12}}/>
+                <select value={finIn.cat} onChange={e=>setFinIn(p=>({...p,cat:e.target.value}))}
+                  style={{background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"7px 10px",fontSize:12}}>
+                  {(finIn.type==="expense"?["Ăn uống","Cafe","Di chuyển","Mua sắm","Học tập","Sức khỏe","Giải trí","Khác"]:["Lương","Freelance","Đầu tư","Khác"]).map(c=><option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <input placeholder="Ghi chú (VD: Cà phê buổi sáng)" value={finIn.note}
+                  onChange={e=>setFinIn(p=>({...p,note:e.target.value}))}
+                  style={{flex:1,background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"7px 10px",fontSize:12}}/>
+                <input type="date" value={finIn.date} onChange={e=>setFinIn(p=>({...p,date:e.target.value}))}
+                  style={{background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"7px 10px",fontSize:12,width:130}}/>
+                <button onClick={()=>{
+                  if(!finIn.amount) return;
+                  const tx={id:`tx_${Date.now()}`,type:finIn.type,amount:Number(finIn.amount),cat:finIn.cat,note:finIn.note,date:finIn.date};
+                  saveFinTxs([tx,...finTxs]);
+                  setFinIn(p=>({...p,amount:"",note:""}));
+                }} style={{padding:"7px 14px",borderRadius:6,background:"#34D399",color:"#000",fontFamily:FM,fontSize:"9px",fontWeight:700,border:"none",cursor:"pointer"}}>+ ADD</button>
+              </div>
+            </div>
+
+            {/* Debt Tracker */}
+            <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"12px 14px",marginBottom:14}}>
+              <p style={{fontFamily:FM,fontSize:"9px",color:"#F87171",letterSpacing:"2px",margin:"0 0 10px"}}>💳 TIẾN ĐỘ TRẢ NỢ</p>
+              {finDebts.map(d=>{
+                const remain=d.total-d.paid;
+                const pct=Math.round(d.paid/d.total*100);
+                return(
+                  <div key={d.id} style={{marginBottom:12}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                      <span style={{fontSize:12,color:"#fff",fontWeight:600}}>{d.n}</span>
+                      <span style={{fontFamily:FM,fontSize:"9px",color:d.col}}>{pct}% trả được</span>
+                    </div>
+                    <div style={{height:6,background:"rgba(255,255,255,0.07)",borderRadius:3,marginBottom:4}}>
+                      <div style={{width:pct+"%",height:"100%",background:`linear-gradient(90deg,${d.col},${d.col}88)`,borderRadius:3,transition:"width .3s"}}/>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span style={{fontFamily:FM,fontSize:"9px",color:"#34D399"}}>Đã trả: {new Intl.NumberFormat("vi-VN").format(d.paid)}đ</span>
+                      <span style={{fontFamily:FM,fontSize:"9px",color:C.mu}}>Còn: {new Intl.NumberFormat("vi-VN").format(remain)}đ</span>
+                      <div style={{display:"flex",gap:4}}>
+                        <input type="number" placeholder="Trả thêm..." style={{width:90,background:"#111",border:"1px solid #333",borderRadius:5,color:"#fff",padding:"3px 7px",fontSize:11}}
+                          id={`debt-pay-${d.id}`}/>
+                        <button onClick={()=>{
+                          const el=document.getElementById(`debt-pay-${d.id}`);
+                          const amt=Number(el?.value)||0;
+                          if(!amt) return;
+                          const updated=finDebts.map(x=>x.id===d.id?{...x,paid:Math.min(x.total,x.paid+amt)}:x);
+                          saveFinDebts(updated);
+                          if(el) el.value="";
+                        }} style={{padding:"3px 8px",borderRadius:5,background:"#34D39920",border:"1px solid #34D39940",color:"#34D399",fontSize:10,cursor:"pointer"}}>✓</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{borderTop:`1px solid ${C.bd}`,paddingTop:8,marginTop:4}}>
+                <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:"0 0 2px"}}>TỔNG NỢ</p>
+                <p style={{fontFamily:FM,fontSize:20,fontWeight:900,color:"#F87171",margin:0}}>{new Intl.NumberFormat("vi-VN").format(finDebts.reduce((s,d)=>s+(d.total-d.paid),0))}đ</p>
+              </div>
+            </div>
+
+            {/* Roadmap tự do tài chính */}
+            <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"12px 14px",marginBottom:14}}>
+              <p style={{fontFamily:FM,fontSize:"9px",color:C.gold,letterSpacing:"2px",margin:"0 0 10px"}}>🎯 ROADMAP TỰ DO TÀI CHÍNH</p>
+              {[
+                {n:1,title:"Trả nợ Mẹ 200,000,000đ",sub:"Ưu tiên số 1 · Đang thực hiện",col:"#ef4444",done:false},
+                {n:2,title:"Hoàn thành GTV SEO",sub:"Deadline 21/05 · Doanh thu ổn định",col:"#f97316",done:false},
+                {n:3,title:"Xây doanh nghiệp AI",sub:"n8n · Julie · Empire Council",col:"#60a5fa",done:false},
+                {n:4,title:"$1,000,000 USD tài sản ròng 🏆",sub:"Tự do tài chính hoàn toàn",col:C.gold,done:false},
+              ].map((s,i)=>(
+                <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start",marginBottom:i<3?12:0}}>
+                  <div style={{width:28,height:28,borderRadius:"50%",background:s.done?"#34D399":i===0?"#ef4444":"rgba(255,255,255,0.05)",border:`2px solid ${s.col}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:FM,fontSize:"10px",fontWeight:700,color:s.done?"#000":s.col}}>{s.n}</div>
+                  <div>
+                    <p style={{fontSize:13,fontWeight:600,color:s.done?C.mu:"#fff",margin:"0 0 2px"}}>{s.title}</p>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:0}}>{s.sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Recent transactions */}
+            {finTxs.length>0&&(
+              <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"12px 14px"}}>
+                <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,letterSpacing:"2px",margin:"0 0 10px"}}>📋 GIAO DỊCH GẦN ĐÂY</p>
+                {finTxs.slice(0,10).map(t=>(
+                  <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${C.bd}`}}>
+                    <div>
+                      <p style={{fontSize:12,color:"#fff",margin:"0 0 1px"}}>{t.cat} {t.note&&`· ${t.note}`}</p>
+                      <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:0}}>{t.date}</p>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontFamily:FM,fontSize:12,fontWeight:700,color:t.type==="income"?"#34D399":"#F87171"}}>
+                        {t.type==="income"?"+":"-"}{new Intl.NumberFormat("vi-VN").format(t.amount)}đ
+                      </span>
+                      <button onClick={()=>saveFinTxs(finTxs.filter(x=>x.id!==t.id))}
+                        style={{width:18,height:18,borderRadius:4,background:"rgba(248,113,113,0.1)",border:"none",color:"#F87171",fontSize:10,cursor:"pointer"}}>×</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ════ GOALS / OKR ════ */}
+        {tab==="goals"&&(
+          <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:isMobile?"10px 12px 80px":"14px 20px 40px",boxSizing:"border-box"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <p style={{fontFamily:FM,fontSize:"9px",color:"#a78bfa",letterSpacing:"2px",margin:0}}>🎯 OKR & GOALS</p>
+              <button onClick={()=>setOkrForm({show:true,obj:"",krs:[""]})}
+                style={{padding:"5px 12px",borderRadius:6,background:"#a78bfa20",border:"1px solid #a78bfa40",color:"#a78bfa",fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>+ OKR MỚI</button>
+            </div>
+
+            {okrForm.show&&(
+              <div style={{background:C.s1,border:"1px solid #a78bfa40",borderRadius:10,padding:"14px",marginBottom:14,animation:"fadeUp .2s ease"}}>
+                <p style={{fontFamily:FM,fontSize:"9px",color:"#a78bfa",margin:"0 0 8px"}}>OBJECTIVE</p>
+                <input placeholder="VD: Đạt 50M doanh thu Q2 2026" value={okrForm.obj}
+                  onChange={e=>setOkrForm(p=>({...p,obj:e.target.value}))}
+                  style={{width:"100%",background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"8px 10px",fontSize:12,marginBottom:10,boxSizing:"border-box"}}/>
+                <p style={{fontFamily:FM,fontSize:"9px",color:"#a78bfa",margin:"0 0 6px"}}>KEY RESULTS</p>
+                {okrForm.krs.map((kr,i)=>(
+                  <div key={i} style={{display:"flex",gap:6,marginBottom:6}}>
+                    <input placeholder={`KR${i+1}: VD: Ký 3 khách mới`} value={kr}
+                      onChange={e=>{const n=[...okrForm.krs];n[i]=e.target.value;setOkrForm(p=>({...p,krs:n}));}}
+                      style={{flex:1,background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"7px 10px",fontSize:12}}/>
+                    {i>0&&<button onClick={()=>{const n=okrForm.krs.filter((_,j)=>j!==i);setOkrForm(p=>({...p,krs:n}));}}
+                      style={{width:28,borderRadius:5,background:"rgba(248,113,113,0.1)",border:"none",color:"#F87171",cursor:"pointer"}}>×</button>}
+                  </div>
+                ))}
+                <div style={{display:"flex",gap:8,marginTop:8}}>
+                  <button onClick={()=>setOkrForm(p=>({...p,krs:[...p.krs,""]}))}
+                    style={{padding:"5px 10px",borderRadius:5,background:"#a78bfa15",border:"1px solid #a78bfa30",color:"#a78bfa",fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>+ KR</button>
+                  <button onClick={()=>{
+                    if(!okrForm.obj.trim()) return;
+                    const newOkr={id:`okr_${Date.now()}`,obj:okrForm.obj,krs:okrForm.krs.filter(k=>k.trim()).map((k,i)=>({id:`kr_${Date.now()}_${i}`,text:k,progress:0,milestones:[]})),createdAt:Date.now()};
+                    saveOkrs([...okrs,newOkr]);
+                    setOkrForm({show:false,obj:"",krs:[""]});
+                  }} style={{flex:1,padding:"5px",borderRadius:5,background:"#a78bfa",color:"#000",fontFamily:FM,fontSize:"9px",fontWeight:700,border:"none",cursor:"pointer"}}>LƯU OKR</button>
+                  <button onClick={()=>setOkrForm({show:false,obj:"",krs:[""]})}
+                    style={{padding:"5px 10px",borderRadius:5,background:"rgba(0,0,0,0.3)",border:`1px solid ${C.bd}`,color:C.mu,fontSize:"9px",cursor:"pointer"}}>Hủy</button>
+                </div>
+              </div>
+            )}
+
+            {okrs.length===0&&!okrForm.show&&(
+              <div style={{textAlign:"center",padding:"50px 20px",color:C.mu}}>
+                <p style={{fontSize:32,marginBottom:8}}>🎯</p>
+                <p style={{fontFamily:FM,fontSize:"9px",letterSpacing:"2px",marginBottom:4}}>CHƯA CÓ OKR NÀO</p>
+                <p style={{fontSize:12}}>Bấm "+ OKR MỚI" để bắt đầu</p>
+              </div>
+            )}
+
+            {okrs.map(okr=>(
+              <div key={okr.id} style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"14px",marginBottom:12,animation:"fadeUp .2s ease"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                  <p style={{fontSize:14,fontWeight:700,color:"#fff",margin:0,flex:1,paddingRight:8}}>🎯 {okr.obj}</p>
+                  <button onClick={()=>saveOkrs(okrs.filter(x=>x.id!==okr.id))}
+                    style={{width:22,height:22,borderRadius:4,background:"rgba(248,113,113,0.1)",border:"none",color:"#F87171",fontSize:11,cursor:"pointer",flexShrink:0}}>×</button>
+                </div>
+                {okr.krs.map((kr,ki)=>(
+                  <div key={kr.id} style={{marginBottom:8}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                      <span style={{fontSize:12,color:"#a78bfa"}}>KR{ki+1}: {kr.text}</span>
+                      <span style={{fontFamily:FM,fontSize:"9px",color:"#a78bfa"}}>{kr.progress}%</span>
+                    </div>
+                    <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                      <div style={{flex:1,height:5,background:"rgba(255,255,255,0.07)",borderRadius:3}}>
+                        <div style={{width:kr.progress+"%",height:"100%",background:"linear-gradient(90deg,#a78bfa,#c084fc)",borderRadius:3,transition:"width .3s"}}/>
+                      </div>
+                      <input type="range" min={0} max={100} value={kr.progress}
+                        onChange={e=>{const u=okrs.map(o=>o.id===okr.id?{...o,krs:o.krs.map((k,j)=>j===ki?{...k,progress:Number(e.target.value)}:k)}:o);saveOkrs(u);}}
+                        style={{width:60}}/>
+                    </div>
+                  </div>
+                ))}
+                <div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${C.bd}`}}>
+                  <span style={{fontFamily:FM,fontSize:"9px",color:C.mu}}>
+                    Progress tổng: {okr.krs.length>0?Math.round(okr.krs.reduce((s,k)=>s+k.progress,0)/okr.krs.length):0}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ════ POMODORO / FOCUS ════ */}
+        {tab==="pomodoro"&&(
+          <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+            <p style={{fontFamily:FM,fontSize:"9px",color:"#f97316",letterSpacing:"2px",marginBottom:20}}>⏱️ FOCUS TIMER</p>
+
+            {/* Mode toggle */}
+            <div style={{display:"flex",gap:8,marginBottom:24}}>
+              {[["work","🔥 Work"],["break","☕ Break"]].map(([m,l])=>(
+                <button key={m} onClick={()=>setPom(p=>({...p,mode:m,elapsed:0,running:false}))}
+                  style={{padding:"6px 18px",borderRadius:8,border:"1px solid "+(pom.mode===m?"#f97316":"#333"),background:pom.mode===m?"#f9731618":"transparent",color:pom.mode===m?"#f97316":C.mu,fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>{l}</button>
+              ))}
+            </div>
+
+            {/* Timer display */}
+            {(()=>{
+              const limit=(pom.mode==="work"?pom.work:pom.brk)*60;
+              const remaining=limit-pom.elapsed;
+              const mm=String(Math.floor(remaining/60)).padStart(2,"0");
+              const ss=String(remaining%60).padStart(2,"0");
+              const pct=Math.round(pom.elapsed/limit*100);
+              return(
+                <div style={{position:"relative",width:200,height:200,marginBottom:24}}>
+                  <svg width={200} height={200} style={{transform:"rotate(-90deg)"}}>
+                    <circle cx={100} cy={100} r={90} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={8}/>
+                    <circle cx={100} cy={100} r={90} fill="none" stroke={pom.mode==="work"?"#f97316":"#34D399"}
+                      strokeWidth={8} strokeDasharray={565} strokeDashoffset={565*(1-pct/100)} strokeLinecap="round"
+                      style={{transition:"stroke-dashoffset .5s"}}/>
+                  </svg>
+                  <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                    <p style={{fontFamily:FM,fontSize:40,fontWeight:900,color:"#fff",margin:0,lineHeight:1}}>{mm}:{ss}</p>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:pom.mode==="work"?"#f97316":"#34D399",margin:"4px 0 0"}}>{pom.mode==="work"?"DEEP WORK":"BREAK TIME"}</p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Controls */}
+            <div style={{display:"flex",gap:10,marginBottom:24}}>
+              <button onClick={()=>setPom(p=>({...p,running:!p.running}))}
+                style={{padding:"10px 32px",borderRadius:10,background:pom.running?"#F8717120":"#f9731620",border:`1px solid ${pom.running?"#F87171":"#f97316"}`,color:pom.running?"#F87171":"#f97316",fontFamily:FM,fontSize:"11px",fontWeight:700,cursor:"pointer"}}>
+                {pom.running?"⏸ PAUSE":"▶ START"}
+              </button>
+              <button onClick={()=>setPom(p=>({...p,running:false,elapsed:0}))}
+                style={{padding:"10px 16px",borderRadius:10,background:"rgba(255,255,255,0.05)",border:`1px solid ${C.bd}`,color:C.mu,fontFamily:FM,fontSize:"11px",cursor:"pointer"}}>↺ RESET</button>
+            </div>
+
+            {/* Custom time settings */}
+            <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"12px 20px",width:"100%",maxWidth:320}}>
+              <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,letterSpacing:"2px",margin:"0 0 10px",textAlign:"center"}}>⚙️ CUSTOM TIME</p>
+              <div style={{display:"flex",gap:12,justifyContent:"center"}}>
+                {[["Work",pom.work,"work"],["Break",pom.brk,"brk"]].map(([l,v,k])=>(
+                  <div key={k} style={{textAlign:"center"}}>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:"0 0 4px"}}>{l} (phút)</p>
+                    <div style={{display:"flex",alignItems:"center",gap:4}}>
+                      <button onClick={()=>setPom(p=>({...p,[k]:Math.max(1,p[k]-5),elapsed:0,running:false}))}
+                        style={{width:24,height:24,borderRadius:4,background:"rgba(255,255,255,0.05)",border:`1px solid ${C.bd}`,color:"#fff",cursor:"pointer",fontSize:14}}>−</button>
+                      <span style={{fontFamily:FM,fontSize:16,fontWeight:700,color:"#fff",minWidth:28,textAlign:"center"}}>{v}</span>
+                      <button onClick={()=>setPom(p=>({...p,[k]:p[k]+5,elapsed:0,running:false}))}
+                        style={{width:24,height:24,borderRadius:4,background:"rgba(255,255,255,0.05)",border:`1px solid ${C.bd}`,color:"#fff",cursor:"pointer",fontSize:14}}>+</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Session count */}
+            <div style={{marginTop:16,textAlign:"center"}}>
+              <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:"0 0 4px"}}>SESSIONS HÔM NAY</p>
+              <p style={{fontSize:24}}>{"🍅".repeat(Math.min(pom.sessions,8))}{pom.sessions===0?"—":""}</p>
+              {pom.sessions>0&&<button onClick={()=>setPom(p=>({...p,sessions:0}))}
+                style={{fontFamily:FM,fontSize:"9px",color:C.mu,background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}}>Reset sessions</button>}
+            </div>
+          </div>
+        )}
+
+      {/* ── Floating Pomodoro Widget ─────────────────────────────── */}
+      {tab!=="pomodoro"&&(
+        <div onClick={()=>setTab("pomodoro")}
+          style={{position:"fixed",bottom:isMobile?80:24,right:16,zIndex:500,cursor:"pointer",
+            background:pom.running?"#f9731620":C.s1,border:`1px solid ${pom.running?"#f97316":C.bd}`,
+            borderRadius:12,padding:"8px 14px",display:"flex",alignItems:"center",gap:8,
+            boxShadow:pom.running?"0 0 20px #f9731640":"none",transition:"all .3s",animation:pom.running?"none":"none"}}>
+          {(()=>{
+            const limit=(pom.mode==="work"?pom.work:pom.brk)*60;
+            const remaining=limit-pom.elapsed;
+            const mm=String(Math.floor(remaining/60)).padStart(2,"0");
+            const ss=String(remaining%60).padStart(2,"0");
+            return(
+              <>
+                <span style={{fontSize:16}}>{pom.running?"🔥":"⏱️"}</span>
+                <span style={{fontFamily:FM,fontSize:12,fontWeight:700,color:pom.running?"#f97316":"#fff"}}>{mm}:{ss}</span>
+                <button onClick={e=>{e.stopPropagation();setPom(p=>({...p,running:!p.running}));}}
+                  style={{width:22,height:22,borderRadius:5,background:pom.running?"#F8717120":"#f9731618",
+                    border:`1px solid ${pom.running?"#F87171":"#f97316"}`,color:pom.running?"#F87171":"#f97316",
+                    fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  {pom.running?"⏸":"▶"}
+                </button>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
       </div>
     </div>
   );
+}
 }
