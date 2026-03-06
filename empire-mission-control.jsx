@@ -408,7 +408,7 @@ function ChatTab({ sessions, activeSessId, sessMessages, sessReady, sidebarOpen,
   return (
     <div style={{flex:1,display:"flex",overflow:"hidden",width:"100%",boxSizing:"border-box"}}>
       {/* SIDEBAR */}
-      <div style={{width:sidebarOpen?252:0,flexShrink:0,display:"flex",flexDirection:"column",overflow:"hidden",borderRight:`1px solid ${C.bd}`,background:"rgba(0,0,0,0.22)",transition:"width .22s cubic-bezier(.4,0,.2,1)"}}>
+      <div style={{width:isMobile?(sidebarOpen?"100vw":0):(sidebarOpen?252:0),flexShrink:0,display:"flex",flexDirection:"column",overflow:"hidden",position:isMobile&&sidebarOpen?"fixed":"relative",top:isMobile&&sidebarOpen?0:"auto",left:0,height:isMobile&&sidebarOpen?"100vh":"auto",zIndex:isMobile&&sidebarOpen?200:1,borderRight:`1px solid ${C.bd}`,background:isMobile&&sidebarOpen?"rgba(13,15,20,0.97)":"rgba(0,0,0,0.22)",transition:"width .22s cubic-bezier(.4,0,.2,1)"}}>
         <div style={{padding:"14px 12px 10px",flexShrink:0,minWidth:252}}>
           <button onClick={()=>setPickAgent(true)} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"10px 0",marginBottom:10,borderRadius:8,background:`linear-gradient(135deg,${C.gold}1A,${C.pur}12)`,border:`1px solid ${C.gold}38`,cursor:"pointer"}}>
             <span style={{fontSize:15}}>✏️</span>
@@ -495,6 +495,12 @@ function ChatTab({ sessions, activeSessId, sessMessages, sessReady, sidebarOpen,
       {/* MAIN */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         <div style={{flexShrink:0,display:"flex",alignItems:"center",gap:8,padding:"10px 16px",borderBottom:`1px solid ${C.bd}`}}>
+          {isMobile&&sidebarOpen&&(
+            <button onClick={()=>setSidebarOpen(false)}
+              style={{position:"absolute",top:8,right:8,width:32,height:32,borderRadius:6,background:"rgba(255,0,0,0.15)",border:"1px solid rgba(255,0,0,0.3)",color:"#F87171",fontSize:16,cursor:"pointer",zIndex:201,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              ✕
+            </button>
+          )}
           <button onClick={()=>setSidebarOpen(p=>!p)} style={{width:32,height:32,borderRadius:6,background:C.s1,border:`1px solid ${C.bd}`,color:C.mu,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
             {sidebarOpen?"◀":"▶"}
           </button>
@@ -558,6 +564,12 @@ function ChatTab({ sessions, activeSessId, sessMessages, sessReady, sidebarOpen,
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab,setTab] = useState("council");
+  const [isMobile,setIsMobile] = useState(()=>typeof window!=="undefined"&&window.innerWidth<640);
+  useEffect(()=>{
+    const fn=()=>setIsMobile(window.innerWidth<640);
+    window.addEventListener("resize",fn);
+    return()=>window.removeEventListener("resize",fn);
+  },[]);
   const [sDone,setSDone]   = useState(()=>new Set());
   const [scDone,setScDone] = useState(()=>new Set());
   // Council
@@ -1211,27 +1223,39 @@ export default function App() {
   return (
     <div style={{fontFamily:F,minHeight:"100vh",background:C.bg,color:C.txt,display:"flex",flexDirection:"column"}}>
       <link rel="stylesheet" href={GF}/>
+      <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
       <style>{`
         @keyframes dot{0%,100%{opacity:.25;transform:scale(.7)}50%{opacity:1;transform:scale(1)}}
         @keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
         ::-webkit-scrollbar{width:3px;height:3px}
         ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.09);border-radius:2px}
         textarea{font-family:'Syne',system-ui,sans-serif!important}
         input::placeholder,textarea::placeholder{color:rgba(232,227,216,0.3)}
+        *{-webkit-tap-highlight-color:transparent}
+        @media(max-width:640px){
+          .tab-label{display:none!important}
+          .tab-badge{display:none!important}
+          .stat-label{display:none!important}
+          .header-stats{gap:6px!important}
+          .notif-panel{width:calc(100vw - 24px)!important;right:-4px!important}
+          .mob-hide{display:none!important}
+          .mob-col{flex-direction:column!important}
+        }
       `}</style>
 
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
       <div style={{borderBottom:`1px solid ${C.bd}`,flexShrink:0,background:`${C.bg}EC`,position:"sticky",top:0,zIndex:100}}>
-        <div style={{maxWidth:960,margin:"0 auto",padding:"12px 20px 0"}}>
+        <div style={{maxWidth:960,margin:"0 auto",padding:isMobile?"8px 12px 0":"12px 20px 0"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
             <div>
               <p style={{fontFamily:FM,fontSize:"8px",letterSpacing:"3px",color:`${C.gold}50`,margin:"0 0 3px",textTransform:"uppercase"}}>Empire Council · Mission Control</p>
               <p style={{fontSize:17,fontWeight:800,color:"#fff",margin:0,letterSpacing:"-0.5px"}}>Mission Control</p>
             </div>
-            <div style={{display:"flex",gap:12,alignItems:"center"}}>
+            <div className="header-stats" style={{display:"flex",gap:12,alignItems:"center"}}>
               {[[panel.length+"/51","Council",C.gold],[mems.length+" items","Memory",C.pur],[sPct+"%","Setup",C.blu],[dateStr,dayStr,C.mu]].map(([v,l,col])=>(
                 <div key={l} style={{textAlign:"center"}}>
-                  <p style={{fontFamily:FM,fontSize:"7px",color:C.fa,margin:"0 0 2px",textTransform:"uppercase",letterSpacing:"1px"}}>{l}</p>
+                  <p className="stat-label" style={{fontFamily:FM,fontSize:"7px",color:C.fa,margin:"0 0 2px",textTransform:"uppercase",letterSpacing:"1px"}}>{l}</p>
                   <p style={{fontFamily:FM,fontSize:11,color:col,margin:0,fontWeight:600}}>{v}</p>
                 </div>
               ))}
@@ -1245,7 +1269,7 @@ export default function App() {
                   )}
                 </button>
                 {showNotifs&&(
-                  <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",zIndex:300,width:320,animation:"slideIn .15s ease"}}>
+                  <div className="notif-panel" style={{position:"absolute",right:0,top:"calc(100% + 6px)",zIndex:300,width:320,animation:"slideIn .15s ease"}}>
                     <NotifPanel notifications={notifications}
                       onRead={()=>{const u=notifications.map(n=>({...n,read:true}));setNotifications(u);try{localStorage.setItem("empire_notifs",JSON.stringify(u));}catch{}}}
                       onClear={()=>{setNotifications([]);try{localStorage.removeItem("empire_notifs");}catch{}}}
@@ -1259,9 +1283,9 @@ export default function App() {
           <div style={{display:"flex",gap:0,overflowX:"auto"}}>
             {TABS.map(t=>{const a=tab===t.id;return(
               <button key={t.id} onClick={()=>setTab(t.id)}
-                style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",flexShrink:0,background:a?`${t.color}0C`:"transparent",border:"none",borderBottom:`2px solid ${a?t.color:"transparent"}`,color:a?t.color:C.mu,cursor:"pointer",transition:"all .15s"}}>
-                <span style={{fontFamily:F,fontSize:12,fontWeight:a?700:400}}>{t.label}</span>
-                <span style={{fontFamily:FM,fontSize:"8px",padding:"1px 7px",borderRadius:10,background:a?`${t.color}18`:"rgba(255,255,255,0.04)",border:`1px solid ${a?t.color+"40":C.bd}`,color:a?t.color:C.fa}}>{t.badge}</span>
+                style={{display:"flex",alignItems:"center",gap:6,padding:isMobile?"8px 10px":"8px 14px",flexShrink:0,background:a?`${t.color}0C`:"transparent",border:"none",borderBottom:`2px solid ${a?t.color:"transparent"}`,color:a?t.color:C.mu,cursor:"pointer",transition:"all .15s"}}>
+                <span className="tab-label" style={{fontFamily:F,fontSize:12,fontWeight:a?700:400}}>{t.label}</span>
+                <span className="tab-badge" style={{fontFamily:FM,fontSize:"8px",padding:"1px 7px",borderRadius:10,background:a?`${t.color}18`:"rgba(255,255,255,0.04)",border:`1px solid ${a?t.color+"40":C.bd}`,color:a?t.color:C.fa}}>{t.badge}</span>
               </button>
             );})}
           </div>
@@ -1502,7 +1526,7 @@ export default function App() {
 
         {/* ════ MEMORY ════ */}
         {tab==="memory"&&(
-          <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:"14px 20px 40px",boxSizing:"border-box"}}>
+          <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:isMobile?"10px 12px 80px":"14px 20px 40px",boxSizing:"border-box"}}>
             {/* Agent Long-term Memory */}
             <div style={{background:"rgba(245,158,11,0.05)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
