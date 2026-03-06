@@ -765,12 +765,6 @@ export default function App() {
   const [isMobile,setIsMobile] = useState(()=>typeof window!=="undefined"&&window.innerWidth<640);
   const [telegramChatId,setTelegramChatId] = useState("");
   const [showProfile,setShowProfile] = useState(false);
-  useEffect(()=>{
-    const fn=()=>setIsMobile(window.innerWidth<640);
-    window.addEventListener("resize",fn);
-    return()=>window.removeEventListener("resize",fn);
-  },[]);
-
   const [sDone,setSDone]   = useState(()=>new Set());
   const [scDone,setScDone] = useState(()=>new Set());
   // Council
@@ -931,6 +925,14 @@ export default function App() {
   const [pom,setPom]           = useState({running:false,mode:"work",elapsed:0,work:25,brk:5,sessions:0});
   const [pomExpanded,setPomExpanded] = useState(false);
   const pomRef = useRef(null);
+
+  // Resize listener
+  useEffect(()=>{
+    const fn=()=>setIsMobile(window.innerWidth<640);
+    window.addEventListener("resize",fn);
+    return()=>window.removeEventListener("resize",fn);
+  },[]);
+
   const saveKb = (u)=>{ setKb(u); try { localStorage.setItem("empire_kb",JSON.stringify(u)); } catch {} };
 
   // ── Auth handlers (after all states) ──────────────────────
@@ -1293,7 +1295,6 @@ export default function App() {
     });
   },[]);
   useEffect(()=>{ saveCfg({activeProviderId,providerModels,apiKeys}); },[activeProviderId,providerModels,apiKeys]);
-  useEffect(()=>{ loadMems().then(m=>{setMems(m);setMemReady(true);}); },[]);
   useEffect(()=>{
     sessIndexLoad().then(async(idx)=>{
       setSessions(idx);
