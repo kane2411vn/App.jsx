@@ -1308,7 +1308,23 @@ export default function App() {
   // ── Helpers ───────────────────────────────────────────────────────────────
   const togPanel=id=>setPanel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   const togS=id=>setSDone(p=>{const n=new Set(p);n.has(id)?n.delete(id):n.add(id);return n;});
-  const togSc=id=>setScDone(p=>{const n=new Set(p);n.has(id)?n.delete(id):n.add(id);return n;});
+  const togSc=id=>{
+    setScDone(p=>{const n=new Set(p);n.has(id)?n.delete(id):n.add(id);return n;});
+    const now=Date.now();
+    setScDone(p=>{
+      if(!p.has(id)){
+        // ticking ON — award XP
+        const nc=now-lastCombo<10000?Math.min(combo+1,5):1;
+        const earned=15*nc;
+        setCombo(nc);setLastCombo(now);
+        setXp(x=>x+earned);setStreak(s=>Math.max(s,1));
+        try{localStorage.setItem("empire_xp",String(xp+earned));localStorage.setItem("empire_streak",String(Math.max(streak,1)));}catch{}
+      } else {
+        setCombo(1);
+      }
+      return p;
+    });
+  };
   const sPct=Math.round(sDone.size/SETUP.length*100);
   const scPct=Math.round(scDone.size/SCHED.length*100);
   const nowMin=()=>{const n=new Date();return n.getHours()*60+n.getMinutes();};
@@ -1326,14 +1342,14 @@ export default function App() {
     {id:"chat",label:"💬 Chat",badge:activeAg.n,color:activeAg.col},
     {id:"memory",label:"🧠 Memory",badge:`${mems.length}`,color:C.pur},
     {id:"analytics",label:"📊 Analytics",badge:`${decisions.length}`,color:"#34D399"},
-    {id:"daily",label:"📅 Lịch",badge:`${scPct}%`,color:C.grn},
+    {id:"daily",label:"📅 Lịch",badge:`${scPct}% · ${xp}XP`,color:C.grn},
     {id:"setup",label:"⚙️ Setup",badge:`${sPct}%`,color:C.blu},
     {id:"roadmap",label:"🗺 5 Năm",badge:"2026–2030",color:C.org},
     {id:"knowledge",label:"📚 KB",badge:`${kbTotal}`,color:"#F59E0B"},
     {id:"finance",label:"💰 Finance",badge:`${finTxs.filter(t=>t.date===new Date().toISOString().slice(0,10)).length}tx`,color:"#34D399"},
     {id:"goals",label:"🎯 Goals",badge:`${okrs.length}`,color:"#a78bfa"},
     {id:"pomodoro",label:"⏱️ Focus",badge:`${pom.sessions}🍅`,color:"#f97316"},
-    {id:"habits",label:"🏃 Habits",badge:`${habits.length}/6`,color:"#22c55e"},
+
     {id:"gym",label:"💪 Gym",badge:`${exDone.size}ex`,color:"#f97316"},
   ];
 
@@ -2197,6 +2213,131 @@ export default function App() {
                 );
               })}
             </div>
+          {/* ── XP / Gamification panel ────────────────── */}
+          <div style={{marginTop:16}}>
+
+            {/* Level + Streak row */}
+            <div style={{background:"rgba(245,200,66,0.05)",border:"1px solid rgba(245,200,66,0.15)",borderRadius:12,padding:"12px 16px",marginBottom:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  {(()=>{const LVS2=[{n:"Newbie",i:"🌱",m:100},{n:"Hustler",i:"💪",m:300},{n:"Grinder",i:"⚡",m:600},{n:"Builder",i:"🏗️",m:1000},{n:"Achiever",i:"🎯",m:1500},{n:"Champion",i:"🏆",m:2500},{n:"Legend",i:"👑",m:5000},{n:"Master",i:"🌟",m:9999}];const li=LVS2.findIndex((l,i,a)=>xp<l.m);const lvi=li<0?LVS2.length-1:li;const lv=LVS2[lvi];return(<><span style={{fontSize:24}}>{lv.i}</span><div><p style={{fontFamily:FM,fontSize:10,fontWeight:700,color:"#fff",margin:"0 0 1px"}}>{lv.n} · Lv.{lvi+1}</p><p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:0}}>{xp} XP · next {lv.m}</p></div></>);})()}
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <p style={{fontFamily:FM,fontSize:22,fontWeight:900,color:"#f97316",margin:0}}>{streak}🔥</p>
+                  <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:0}}>streak ngày</p>
+                </div>
+              </div>
+              {(()=>{const LVS2=[{m:100},{m:300},{m:600},{m:1000},{m:1500},{m:2500},{m:5000},{m:9999}];const li=LVS2.findIndex(l=>xp<l.m);const lvi=li<0?LVS2.length-1:li;const prev=lvi>0?LVS2[lvi-1].m:0;const pct=Math.min((xp-prev)/(LVS2[lvi].m-prev)*100,100);return(<div style={{height:5,background:"rgba(255,255,255,0.07)",borderRadius:3}}><div style={{width:pct+"%",height:"100%",background:"linear-gradient(90deg,#f5c842,#f97316)",borderRadius:3,transition:"width .5s"}}/></div>);})()}
+            </div>
+
+            {/* Combo indicator */}
+            {combo>1&&(
+              <div style={{background:"rgba(249,115,22,0.08)",border:"1px solid #f9731630",borderRadius:8,padding:"7px 12px",marginBottom:10,display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:16}}>⚡</span>
+                <p style={{fontFamily:FM,fontSize:"9px",color:"#f97316",fontWeight:700,margin:0}}>COMBO ×{combo}! Tick liên tiếp trong 10s → XP x{combo}</p>
+              </div>
+            )}
+
+            {/* Custom habits */}
+            {customHabits.length>0&&(
+              <div style={{marginBottom:10}}>
+                <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,letterSpacing:"2px",margin:"0 0 6px"}}>⭐ HABITS RIÊNG</p>
+                {customHabits.map(h=>{
+                  const done=habits.includes(h.id);
+                  return(
+                    <div key={h.id} onClick={()=>{
+                      const now=Date.now();
+                      if(!habits.includes(h.id)){
+                        const nc=now-lastCombo<10000?Math.min(combo+1,5):1;
+                        const earned=h.xp*nc; setCombo(nc); setLastCombo(now);
+                        saveHabits([...habits,h.id],{...habitStreaks,[h.id]:(habitStreaks[h.id]||0)+1},xp+earned,Math.max(streak,1));
+                      } else {
+                        setCombo(1);
+                        saveHabits(habits.filter(x=>x!==h.id),{...habitStreaks,[h.id]:Math.max(0,(habitStreaks[h.id]||1)-1)},xp,streak);
+                      }
+                    }}
+                    style={{display:"flex",alignItems:"center",gap:10,background:done?`${h.col}10`:"rgba(255,255,255,0.02)",border:`1px solid ${done?h.col+"40":"rgba(255,255,255,0.07)"}`,borderRadius:8,padding:"9px 12px",marginBottom:6,cursor:"pointer"}}>
+                      <span style={{fontSize:18}}>{h.icon}</span>
+                      <div style={{flex:1}}>
+                        <p style={{fontSize:12,fontWeight:600,color:"#fff",margin:"0 0 2px"}}>{h.name}</p>
+                        <span style={{fontFamily:FM,fontSize:"8px",color:h.col}}>+{h.xp*combo}XP · 🔥{habitStreaks[h.id]||0} ngày</span>
+                      </div>
+                      <div style={{width:22,height:22,borderRadius:"50%",background:done?h.col:"transparent",border:`2px solid ${done?h.col:"rgba(255,255,255,0.15)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#000",fontWeight:800}}>{done?"✓":""}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Add custom habit */}
+            {newHabitForm.show?(
+              <div style={{background:"rgba(34,197,94,0.05)",border:"1px solid #22c55e30",borderRadius:10,padding:"12px",marginBottom:10}}>
+                <p style={{fontFamily:FM,fontSize:"8px",color:"#22c55e",margin:"0 0 8px"}}>+ HABIT MỚI</p>
+                <div style={{display:"flex",gap:6,marginBottom:6}}>
+                  <input placeholder="icon" value={newHabitForm.icon} onChange={e=>setNewHabitForm(p=>({...p,icon:e.target.value}))}
+                    style={{width:44,background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"6px",fontSize:14,textAlign:"center"}}/>
+                  <input placeholder="Tên habit..." value={newHabitForm.name} onChange={e=>setNewHabitForm(p=>({...p,name:e.target.value}))}
+                    style={{flex:1,background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"6px 10px",fontSize:12}}/>
+                  <input type="number" placeholder="XP" value={newHabitForm.xp} onChange={e=>setNewHabitForm(p=>({...p,xp:Number(e.target.value)}))}
+                    style={{width:50,background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"6px",fontSize:12}}/>
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={()=>{if(!newHabitForm.name.trim())return;const h={id:`ch_${Date.now()}`,name:newHabitForm.name,icon:newHabitForm.icon||"⭐",col:"#22c55e",xp:newHabitForm.xp||20,meta:"Custom"};saveCustomHabits([...customHabits,h]);setNewHabitForm({show:false,name:"",icon:"⭐",xp:20});}}
+                    style={{flex:1,padding:"7px",borderRadius:6,background:"#22c55e",color:"#000",fontFamily:FM,fontSize:"8px",fontWeight:700,border:"none",cursor:"pointer"}}>LƯU</button>
+                  <button onClick={()=>setNewHabitForm({show:false,name:"",icon:"⭐",xp:20})}
+                    style={{padding:"7px 10px",borderRadius:6,background:"transparent",border:"1px solid #333",color:C.mu,fontSize:"8px",cursor:"pointer"}}>Hủy</button>
+                </div>
+              </div>
+            ):(
+              <button onClick={()=>setNewHabitForm(p=>({...p,show:true}))}
+                style={{width:"100%",padding:"8px",borderRadius:8,background:"transparent",border:"1px dashed #22c55e30",color:"#22c55e60",fontFamily:FM,fontSize:"8px",cursor:"pointer",marginBottom:10}}>
+                + Thêm habit riêng (có XP)
+              </button>
+            )}
+
+            {/* Spin wheel */}
+            <div style={{background:"rgba(245,200,66,0.04)",border:"1px solid rgba(245,200,66,0.12)",borderRadius:10,padding:"12px",textAlign:"center",marginBottom:10}}>
+              <p style={{fontFamily:FM,fontSize:"8px",color:C.gold,letterSpacing:"2px",margin:"0 0 6px"}}>🎰 DAILY SPIN — hoàn thành 3+ block</p>
+              <div style={{fontSize:40,margin:"0 0 6px",cursor:scDone.size>=3&&!spun?"pointer":"default",filter:scDone.size>=3&&!spun?"drop-shadow(0 0 10px #f5c842)":"none"}}
+                onClick={()=>{
+                  const REWARDS=[{e:"⚡",x:50},{e:"💰",x:100},{e:"🌟",x:75},{e:"🎯",x:25},{e:"🏆",x:150},{e:"💎",x:200}];
+                  if(spun||scDone.size<3||spinRunning)return;
+                  setSpinRunning(true);
+                  const ems=["🎁","⭐","💎","🏆","⚡","🌟","💰"];
+                  let c=0;const iv=setInterval(()=>{setSpinAnim(ems[Math.floor(Math.random()*ems.length)]);c++;
+                    if(c>=20){clearInterval(iv);const r=REWARDS[Math.floor(Math.random()*REWARDS.length)];
+                    setSpinAnim(r.e);setSpun(true);setSpinRunning(false);
+                    saveHabits(habits,habitStreaks,xp+r.x,streak);}
+                  },80);
+                }}>
+                {spinAnim}
+              </div>
+              <button onClick={()=>{
+                const REWARDS=[{e:"⚡",x:50},{e:"💰",x:100},{e:"🌟",x:75},{e:"🎯",x:25},{e:"🏆",x:150},{e:"💎",x:200}];
+                if(spun||scDone.size<3||spinRunning)return;
+                setSpinRunning(true);const ems=["🎁","⭐","💎","🏆","⚡","🌟","💰"];
+                let c=0;const iv=setInterval(()=>{setSpinAnim(ems[Math.floor(Math.random()*ems.length)]);c++;
+                  if(c>=20){clearInterval(iv);const r=REWARDS[Math.floor(Math.random()*REWARDS.length)];
+                  setSpinAnim(r.e);setSpun(true);setSpinRunning(false);
+                  saveHabits(habits,habitStreaks,xp+r.x,streak);}
+                },80);
+              }} disabled={spun||scDone.size<3||spinRunning}
+                style={{padding:"6px 18px",borderRadius:8,background:spun?"rgba(255,255,255,0.04)":scDone.size>=3?"rgba(245,200,66,0.12)":"rgba(255,255,255,0.03)",border:`1px solid ${spun||scDone.size<3?"#333":"rgba(245,200,66,0.3)"}`,color:spun||scDone.size<3?C.mu:C.gold,fontFamily:FM,fontSize:"8px",fontWeight:700,cursor:spun||scDone.size<3?"not-allowed":"pointer"}}>
+                {spun?"✅ Đã spin":scDone.size>=3?"🎰 SPIN NOW!":"🔒 Cần "+(3-scDone.size)+" block nữa"}
+              </button>
+            </div>
+
+            {/* Milestones */}
+            <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,marginBottom:4}}>
+              {[{e:"🌱",n:"First Step",x:0},{e:"🔥",n:"3-Day",x:50},{e:"⚡",n:"Hustler",x:100},{e:"🏆",n:"Perfect",x:160},{e:"💎",n:"Diamond",x:500},{e:"👑",n:"Legend",x:2500}].map(m=>(
+                <div key={m.n} style={{flexShrink:0,width:72,background:xp>=m.x?"rgba(245,200,66,0.08)":"rgba(255,255,255,0.02)",border:`1px solid ${xp>=m.x?"rgba(245,200,66,0.3)":"rgba(255,255,255,0.06)"}`,borderRadius:8,padding:"8px 6px",textAlign:"center"}}>
+                  <p style={{fontSize:18,margin:"0 0 3px"}}>{xp>=m.x?m.e:"🔒"}</p>
+                  <p style={{fontFamily:FM,fontSize:"7px",color:xp>=m.x?C.gold:C.mu,margin:0}}>{m.n}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
           </div>
         )}
 
@@ -2805,197 +2946,6 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
         )}
 
 
-        {/* ════ HABITS ════ */}
-        {tab==="habits"&&(()=>{
-          const LVS=[{n:"Newbie",i:"🌱",m:100},{n:"Hustler",i:"💪",m:300},{n:"Grinder",i:"⚡",m:600},{n:"Builder",i:"🏗️",m:1000},{n:"Achiever",i:"🎯",m:1500},{n:"Champion",i:"🏆",m:2500},{n:"Legend",i:"👑",m:5000},{n:"Master",i:"🌟",m:9999}];
-          const REWARDS=[{e:"⚡",n:"+50 XP",x:50},{e:"💰",n:"+100 XP Jackpot!",x:100},{e:"🌟",n:"+75 XP Star",x:75},{e:"🎯",n:"+25 XP",x:25},{e:"🏆",n:"+150 XP MEGA!",x:150},{e:"💎",n:"+200 XP ULTRA!",x:200}];
-          const CLRS={green:"#22c55e",blue:"#60a5fa",orange:"#f97316",purple:"#a78bfa",red:"#ef4444",yellow:"#f5c842"};
-          const BASE_HABITS=[
-            {id:"learn",name:"Học ít nhất 1 giờ",icon:"📚",col:"#60a5fa",xp:30,meta:"Flow state"},
-            {id:"gym",name:"Tập thể dục",icon:"💪",col:"#f97316",xp:40,meta:"Endorphin"},
-            {id:"read",name:"Đọc sách 30 phút",icon:"📖",col:"#a78bfa",xp:20,meta:"Neuroplasticity"},
-            {id:"sleep",name:"Ngủ trước 12h",icon:"😴",col:"#60a5fa",xp:25,meta:"GH hormone"},
-            {id:"noshopping",name:"Không mua sắm lãng phí",icon:"🛒",col:"#22c55e",xp:20,meta:"Delayed gratification"},
-            {id:"social",name:"Hạn chế MXH < 1h",icon:"📵",col:"#ef4444",xp:25,meta:"Dopamine detox"},
-          ];
-          const ALL_HABITS=[...BASE_HABITS,...customHabits];
-          const getLvIdx=x=>{for(let i=0;i<LVS.length;i++)if(x<LVS[i].m)return i;return LVS.length-1;};
-          const lvIdx=getLvIdx(xp); const lv=LVS[lvIdx]; const prev=lvIdx>0?LVS[lvIdx-1].m:0;
-          const lvPct=Math.min((xp-prev)/(lv.m-prev)*100,100);
-
-          const tickHabit=(id)=>{
-            const now=Date.now();
-            const h=ALL_HABITS.find(x=>x.id===id);
-            if(!h) return;
-            if(!habits.includes(id)){
-              const newCombo=now-lastCombo<10000?Math.min(combo+1,5):1;
-              const earned=h.xp*newCombo;
-              const newXp=xp+earned+(habits.length+1===ALL_HABITS.length?100:0);
-              const newHabits=[...habits,id];
-              const newStreaks={...habitStreaks,[id]:(habitStreaks[id]||0)+1};
-              setCombo(newCombo); setLastCombo(now);
-              saveHabits(newHabits,newStreaks,newXp,Math.max(streak,1));
-            } else {
-              const newHabits=habits.filter(x=>x!==id);
-              const newStreaks={...habitStreaks,[id]:Math.max(0,(habitStreaks[id]||1)-1)};
-              setCombo(1);
-              saveHabits(newHabits,newStreaks,xp,streak);
-            }
-          };
-
-          const doSpin=()=>{
-            if(spun||habits.length<3||spinRunning) return;
-            setSpinRunning(true);
-            const ems=["🎁","⭐","💎","🏆","⚡","🌟","💰"];
-            let c=0;
-            const iv=setInterval(()=>{
-              setSpinAnim(ems[Math.floor(Math.random()*ems.length)]); c++;
-              if(c>=20){
-                clearInterval(iv);
-                const r=REWARDS[Math.floor(Math.random()*REWARDS.length)];
-                setSpinAnim(r.e); setSpun(true); setSpinRunning(false);
-                saveHabits(habits,habitStreaks,xp+r.x,streak);
-              }
-            },80);
-          };
-
-          return(
-            <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:isMobile?"10px 12px 80px":"14px 20px 40px",boxSizing:"border-box"}}>
-
-              {/* Level card */}
-              <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:12,padding:"14px 16px",marginBottom:12}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                  <div style={{display:"flex",alignItems:"center",gap:10}}>
-                    <div style={{fontSize:28}}>{lv.i}</div>
-                    <div>
-                      <p style={{fontFamily:FM,fontSize:11,fontWeight:700,color:"#fff",margin:"0 0 2px"}}>{lv.n} · Lv.{lvIdx+1}</p>
-                      <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:0}}>{xp} XP · next: {lv.m} XP</p>
-                    </div>
-                  </div>
-                  <div style={{textAlign:"center"}}>
-                    <p style={{fontFamily:FM,fontSize:24,fontWeight:900,color:"#f5c842",margin:0}}>{streak}</p>
-                    <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:0}}>🔥 streak</p>
-                  </div>
-                </div>
-                <div style={{height:6,background:"rgba(255,255,255,0.07)",borderRadius:3}}>
-                  <div style={{width:lvPct+"%",height:"100%",background:`linear-gradient(90deg,#f5c842,#f97316)`,borderRadius:3,transition:"width .5s"}}/>
-                </div>
-              </div>
-
-              {/* Stats row */}
-              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:12}}>
-                {[["XP hôm nay","+"+habits.reduce((s,id)=>{const h=ALL_HABITS.find(x=>x.id===id);return s+(h?h.xp*combo:0);},0),"#f5c842"],
-                  ["Combo","×"+combo,"#f97316"],
-                  ["Habits",habits.length+"/"+ALL_HABITS.length,"#22c55e"],
-                  ["Streak",streak+"🔥","#60a5fa"]].map(([l,v,col])=>(
-                  <div key={l} style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
-                    <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 3px"}}>{l}</p>
-                    <p style={{fontFamily:FM,fontSize:13,fontWeight:700,color:col,margin:0}}>{v}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Combo bar */}
-              <div style={{background:C.s1,border:`1px solid ${combo>1?"#f97316":C.bd}`,borderRadius:10,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
-                <span style={{fontSize:20}}>⚡</span>
-                <div style={{flex:1}}>
-                  <p style={{fontFamily:FM,fontSize:"9px",color:combo>1?"#f97316":C.mu,margin:"0 0 2px",fontWeight:combo>1?700:400}}>
-                    {combo>1?`🔥 COMBO ×${combo}! XP x${combo}!`:"Tick liên tiếp trong 10s để tăng XP"}
-                  </p>
-                </div>
-                <span style={{fontFamily:FM,fontSize:20,fontWeight:900,color:combo>1?"#f97316":"#fff"}}>×{combo}</span>
-              </div>
-
-              {/* Habits list */}
-              <div style={{marginBottom:12}}>
-                {ALL_HABITS.map(h=>{
-                  const done=habits.includes(h.id);
-                  const hStreak=habitStreaks[h.id]||0;
-                  return(
-                    <div key={h.id} onClick={()=>tickHabit(h.id)}
-                      style={{display:"flex",alignItems:"center",gap:10,background:done?`${h.col}10`:C.s1,border:`1px solid ${done?h.col+"50":C.bd}`,borderRadius:10,padding:"11px 13px",marginBottom:7,cursor:"pointer",transition:"all .2s"}}>
-                      <div style={{width:36,height:36,borderRadius:9,background:`${h.col}18`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{h.icon}</div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <p style={{fontSize:13,fontWeight:600,color:done?"#fff":C.txt,margin:"0 0 2px",textDecoration:done?"none":"none"}}>{h.name}</p>
-                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                          <span style={{fontFamily:FM,fontSize:"9px",color:"#f97316"}}>🔥 {hStreak} ngày</span>
-                          <span style={{fontFamily:FM,fontSize:"9px",color:h.col}}>+{h.xp*combo} XP{combo>1?` ×${combo}`:""}</span>
-                          <span style={{fontFamily:FM,fontSize:"9px",color:C.mu}}>{h.meta}</span>
-                        </div>
-                      </div>
-                      <div style={{width:26,height:26,borderRadius:"50%",background:done?h.col:"rgba(255,255,255,0.05)",border:`2px solid ${done?h.col:C.bd}`,display:"flex",alignItems:"center",justifyContent:"center",color:done?"#000":"transparent",fontWeight:700,fontSize:12,flexShrink:0,transition:"all .2s"}}>
-                        {done?"✓":""}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Add custom habit */}
-              {newHabitForm.show?(
-                <div style={{background:C.s1,border:"1px solid #22c55e40",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
-                  <p style={{fontFamily:FM,fontSize:"9px",color:"#22c55e",margin:"0 0 8px"}}>+ HABIT MỚI</p>
-                  <div style={{display:"flex",gap:6,marginBottom:6}}>
-                    <input placeholder="Icon (emoji)" value={newHabitForm.icon} onChange={e=>setNewHabitForm(p=>({...p,icon:e.target.value}))}
-                      style={{width:50,background:"#111",border:`1px solid ${C.bd}`,borderRadius:6,color:"#fff",padding:"7px 8px",fontSize:14,textAlign:"center"}}/>
-                    <input placeholder="Tên habit..." value={newHabitForm.name} onChange={e=>setNewHabitForm(p=>({...p,name:e.target.value}))}
-                      style={{flex:1,background:"#111",border:`1px solid ${C.bd}`,borderRadius:6,color:"#fff",padding:"7px 10px",fontSize:12}}/>
-                    <input type="number" placeholder="XP" value={newHabitForm.xp} onChange={e=>setNewHabitForm(p=>({...p,xp:Number(e.target.value)}))}
-                      style={{width:55,background:"#111",border:`1px solid ${C.bd}`,borderRadius:6,color:"#fff",padding:"7px 8px",fontSize:12}}/>
-                  </div>
-                  <div style={{display:"flex",gap:6}}>
-                    <button onClick={()=>{
-                      if(!newHabitForm.name.trim()) return;
-                      const h={id:`custom_${Date.now()}`,name:newHabitForm.name,icon:newHabitForm.icon||"⭐",col:"#22c55e",xp:newHabitForm.xp||20,meta:"Custom"};
-                      saveCustomHabits([...customHabits,h]);
-                      setNewHabitForm({show:false,name:"",icon:"⭐",xp:20});
-                    }} style={{flex:1,padding:"7px",borderRadius:6,background:"#22c55e",color:"#000",fontFamily:FM,fontSize:"9px",fontWeight:700,border:"none",cursor:"pointer"}}>LƯU HABIT</button>
-                    <button onClick={()=>setNewHabitForm({show:false,name:"",icon:"⭐",xp:20})}
-                      style={{padding:"7px 12px",borderRadius:6,background:"transparent",border:`1px solid ${C.bd}`,color:C.mu,fontSize:"9px",cursor:"pointer"}}>Hủy</button>
-                  </div>
-                </div>
-              ):(
-                <button onClick={()=>setNewHabitForm(p=>({...p,show:true}))}
-                  style={{width:"100%",padding:"9px",borderRadius:8,background:"transparent",border:"1px dashed #22c55e40",color:"#22c55e80",fontFamily:FM,fontSize:"9px",cursor:"pointer",marginBottom:12}}>
-                  + Thêm habit mới
-                </button>
-              )}
-
-              {/* Spin wheel */}
-              <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"14px",textAlign:"center",marginBottom:12}}>
-                <p style={{fontFamily:FM,fontSize:"9px",color:"#f5c842",letterSpacing:"2px",margin:"0 0 8px"}}>🎰 DAILY BONUS SPIN</p>
-                <div onClick={doSpin} style={{fontSize:48,margin:"0 0 8px",cursor:habits.length>=3&&!spun?"pointer":"default",filter:habits.length>=3&&!spun?"drop-shadow(0 0 12px #f5c842)":"none",transition:"filter .3s"}}>{spinAnim}</div>
-                <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:"0 0 10px"}}>Variable reward = dopamine tối đa</p>
-                <button onClick={doSpin} disabled={spun||habits.length<3||spinRunning}
-                  style={{padding:"8px 20px",borderRadius:8,background:spun?"rgba(255,255,255,0.05)":habits.length>=3?"#f5c84222":"rgba(255,255,255,0.03)",border:`1px solid ${spun||habits.length<3?"#333":"#f5c84250"}`,color:spun||habits.length<3?C.mu:"#f5c842",fontFamily:FM,fontSize:"9px",fontWeight:700,cursor:spun||habits.length<3?"not-allowed":"pointer"}}>
-                  {spun?"✅ Đã spin hôm nay":habits.length>=3?"🎰 SPIN NOW!":"🔒 Cần "+(3-habits.length)+" habit nữa"}
-                </button>
-              </div>
-
-              {/* Milestones */}
-              <div style={{marginBottom:12}}>
-                <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,letterSpacing:"2px",margin:"0 0 8px"}}>🏆 MILESTONES</p>
-                <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
-                  {[{e:"🌱",n:"First Step",r:"Habit đầu tiên",x:0},{e:"🔥",n:"3-Day Streak",r:"Streak 3 ngày",x:50},{e:"⚡",n:"Hustler",r:"Level 2",x:100},{e:"🏆",n:"Perfect Day",r:"6/6 habits",x:160},{e:"💎",n:"Diamond",r:"500 XP",x:500},{e:"👑",n:"Legend",r:"Level 7",x:2500}].map(m=>(
-                    <div key={m.n} style={{flexShrink:0,width:80,background:xp>=m.x?`#f5c84212`:C.s1,border:`1px solid ${xp>=m.x?"#f5c84250":C.bd}`,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
-                      <p style={{fontSize:20,margin:"0 0 4px"}}>{xp>=m.x?m.e:"🔒"}</p>
-                      <p style={{fontFamily:FM,fontSize:"8px",fontWeight:700,color:xp>=m.x?"#f5c842":C.mu,margin:"0 0 2px"}}>{m.n}</p>
-                      <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:0}}>{m.r}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Reset day button */}
-              <button onClick={()=>{saveHabits([],habitStreaks,xp,streak);setCombo(1);setSpun(false);setSpinAnim("🎁");}}
-                style={{padding:"7px 14px",borderRadius:6,background:"transparent",border:`1px solid ${C.bd}`,color:C.mu,fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>
-                ↺ Reset ngày mới
-              </button>
-
-            </div>
-          );
-        })()}
-
         {/* ════ GYM ════ */}
         {tab==="gym"&&(()=>{
           const SCH={
@@ -3089,6 +3039,126 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
                 </div>
                 <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,marginTop:6}}>💡 Uống đủ nước giúp tập gym hiệu quả hơn 20%</p>
               </div>
+
+              {/* ── Thực đơn 128 món ─────────────────────── */}
+              {(()=>{
+                const MENU=[
+                  // SÁNG
+                  {cat:"🌅 Bữa sáng",items:[
+                    {n:"Phở bò",kcal:450,p:30,c:55,f:8},{n:"Bún bò Huế",kcal:480,p:28,c:58,f:10},{n:"Cháo gà",kcal:280,p:22,c:35,f:5},
+                    {n:"Bánh mì trứng",kcal:350,p:14,c:42,f:12},{n:"Bánh mì thịt",kcal:400,p:18,c:45,f:14},{n:"Xôi gà",kcal:420,p:24,c:58,f:10},
+                    {n:"Xôi xéo",kcal:380,p:10,c:68,f:8},{n:"Bún riêu",kcal:400,p:26,c:48,f:9},{n:"Hủ tiếu",kcal:430,p:25,c:52,f:10},
+                    {n:"Mì gói trứng",kcal:480,p:16,c:62,f:16},{n:"Bánh cuốn",kcal:320,p:16,c:48,f:6},{n:"Cơm tấm sườn",kcal:580,p:32,c:65,f:18},
+                    {n:"Trứng chiên",kcal:160,p:12,c:1,f:12},{n:"Yến mạch sữa",kcal:350,p:14,c:52,f:8},{n:"Bánh bao nhân thịt",kcal:280,p:12,c:38,f:8},
+                    {n:"Cơm trắng + trứng",kcal:380,p:14,c:62,f:8},
+                  ]},
+                  // TRƯA
+                  {cat:"☀️ Bữa trưa",items:[
+                    {n:"Cơm gà luộc",kcal:520,p:38,c:62,f:10},{n:"Cơm sườn bí đao",kcal:550,p:30,c:68,f:12},{n:"Cơm cá kho",kcal:480,p:32,c:58,f:10},
+                    {n:"Cơm thịt kho tàu",kcal:620,p:35,c:65,f:20},{n:"Cơm tôm rang",kcal:500,p:30,c:60,f:12},{n:"Cơm canh chua",kcal:460,p:28,c:55,f:10},
+                    {n:"Bún thịt nướng",kcal:520,p:30,c:58,f:14},{n:"Bún đậu mắm tôm",kcal:580,p:22,c:62,f:22},{n:"Cơm chiên dương châu",kcal:560,p:18,c:72,f:18},
+                    {n:"Mì xào bò",kcal:580,p:32,c:68,f:16},{n:"Phở gà",kcal:400,p:28,c:48,f:8},{n:"Bánh ướt thịt heo",kcal:380,p:20,c:45,f:12},
+                    {n:"Cơm rang trứng",kcal:480,p:16,c:65,f:16},{n:"Gỏi cuốn (2 cuốn)",kcal:180,p:12,c:22,f:4},{n:"Bún chả Hà Nội",kcal:540,p:32,c:58,f:16},
+                    {n:"Cơm gà xối mỡ",kcal:650,p:40,c:62,f:22},
+                  ]},
+                  // TỐI
+                  {cat:"🌙 Bữa tối",items:[
+                    {n:"Cơm thịt luộc rau",kcal:420,p:30,c:52,f:10},{n:"Cá hồi áp chảo",kcal:380,p:38,c:8,f:20},{n:"Ức gà áp chảo",kcal:320,p:42,c:5,f:12},
+                    {n:"Thịt bò xào rau",kcal:360,p:32,c:18,f:16},{n:"Tôm hấp gừng",kcal:180,p:28,c:4,f:4},{n:"Cơm canh rau",kcal:380,p:18,c:58,f:6},
+                    {n:"Cháo thịt bằm",kcal:320,p:22,c:40,f:8},{n:"Trứng hấp thịt",kcal:280,p:24,c:8,f:16},{n:"Rau xào tỏi",kcal:120,p:4,c:14,f:6},
+                    {n:"Canh cải thịt",kcal:180,p:14,c:10,f:7},{n:"Đậu hũ chiên",kcal:200,p:12,c:8,f:14},{n:"Lẩu thái hải sản",kcal:450,p:36,c:30,f:14},
+                    {n:"Cá lóc hấp",kcal:280,p:34,c:4,f:10},{n:"Thịt heo kho gừng",kcal:380,p:28,c:6,f:24},{n:"Cơm gạo lứt + rau",kcal:350,p:12,c:62,f:5},
+                    {n:"Cháo yến mạch tối",kcal:260,p:10,c:44,f:5},
+                  ]},
+                  // SNACK
+                  {cat:"🍎 Snack & Tráng miệng",items:[
+                    {n:"Chuối (1 quả)",kcal:90,p:1,c:23,f:0},{n:"Táo (1 quả)",kcal:80,p:0,c:21,f:0},{n:"Sữa chua không đường",kcal:100,p:8,c:12,f:2},
+                    {n:"Whey protein shake",kcal:150,p:25,c:8,f:2},{n:"Trứng luộc (2 quả)",kcal:160,p:14,c:1,f:11},{n:"Hạt điều (30g)",kcal:170,p:5,c:10,f:14},
+                    {n:"Bơ (1/2 quả)",kcal:160,p:2,c:9,f:15},{n:"Granola + sữa",kcal:320,p:10,c:52,f:8},{n:"Phô mai (2 lát)",kcal:140,p:8,c:2,f:11},
+                    {n:"Bánh gạo lứt",kcal:110,p:2,c:24,f:1},{n:"Socola đen (30g)",kcal:170,p:3,c:18,f:11},{n:"Nước ép cam",kcal:120,p:2,c:28,f:0},
+                    {n:"Sinh tố chuối",kcal:200,p:5,c:42,f:2},{n:"Khoai lang luộc",kcal:130,p:3,c:30,f:0},{n:"Hạt dẻ (50g)",kcal:180,p:4,c:18,f:11},
+                    {n:"Sữa tươi không đường",kcal:130,p:8,c:12,f:5},
+                  ]},
+                  // GYM MEAL
+                  {cat:"💪 Meal cho Gym",items:[
+                    {n:"Gà + gạo lứt + rau",kcal:480,p:45,c:52,f:8},{n:"Cá ngừ + khoai lang",kcal:380,p:35,c:35,f:6},{n:"Whey + oats + chuối",kcal:420,p:32,c:62,f:6},
+                    {n:"Bò + bông cải",kcal:360,p:38,c:14,f:14},{n:"Tôm + salad rau",kcal:220,p:28,c:12,f:4},{n:"Trứng + avocado toast",kcal:380,p:18,c:32,f:20},
+                    {n:"Gà + khoai tây",kcal:480,p:40,c:45,f:10},{n:"Cá hồi + quinoa",kcal:450,p:40,c:38,f:14},{n:"Sườn + khoai lang",kcal:520,p:35,c:48,f:16},
+                    {n:"Mass gainer shake",kcal:600,p:30,c:88,f:8},{n:"Overnight oats",kcal:350,p:14,c:58,f:8},{n:"Protein pancake",kcal:280,p:22,c:30,f:6},
+                    {n:"Beef stir fry + rice",kcal:550,p:40,c:58,f:14},{n:"Cottage cheese + fruit",kcal:220,p:20,c:22,f:4},{n:"Tuna sandwich",kcal:340,p:30,c:35,f:6},
+                    {n:"Egg white omelette",kcal:180,p:24,c:4,f:6},
+                  ]},
+                  // ĂN CHƠI
+                  {cat:"🎉 Ăn ngoài & Cheat meal",items:[
+                    {n:"Burger bò (fast food)",kcal:720,p:35,c:65,f:32},{n:"Pizza (2 miếng)",kcal:580,p:24,c:68,f:20},{n:"KFC (2 miếng gà)",kcal:650,p:40,c:38,f:36},
+                    {n:"Gà rán + khoai tây",kcal:680,p:38,c:58,f:28},{n:"Sushi (10 miếng)",kcal:420,p:24,c:68,f:6},{n:"Bún bò Huế đặc biệt",kcal:580,p:35,c:65,f:16},
+                    {n:"Lẩu thái (1 suất)",kcal:520,p:40,c:35,f:18},{n:"Bò nhúng dấm",kcal:480,p:42,c:25,f:20},{n:"Cơm tấm sườn bì chả",kcal:720,p:38,c:75,f:26},
+                    {n:"Mỳ Ý sốt bò bằm",kcal:620,p:32,c:72,f:20},{n:"Kebab thịt",kcal:550,p:36,c:42,f:22},{n:"Trà sữa trân châu",kcal:480,p:6,c:82,f:12},
+                    {n:"Bánh tráng trộn",kcal:320,p:8,c:52,f:10},{n:"Nướng BBQ (1 suất)",kcal:650,p:48,c:18,f:38},{n:"Hot pot (1 suất)",kcal:550,p:40,c:42,f:20},
+                    {n:"Dim sum (1 suất)",kcal:480,p:22,c:55,f:18},
+                  ]},
+                  // NƯỚC UỐNG
+                  {cat:"🥤 Đồ uống",items:[
+                    {n:"Cà phê đen",kcal:5,p:0,c:1,f:0},{n:"Cà phê sữa",kcal:120,p:3,c:18,f:4},{n:"Trà xanh",kcal:0,p:0,c:0,f:0},
+                    {n:"Nước lọc",kcal:0,p:0,c:0,f:0},{n:"Sữa tươi (200ml)",kcal:130,p:7,c:12,f:5},{n:"Protein shake",kcal:160,p:26,c:10,f:3},
+                    {n:"Nước dừa (1 trái)",kcal:60,p:1,c:14,f:0},{n:"Cam vắt (200ml)",kcal:90,p:2,c:21,f:0},{n:"Sinh tố xoài",kcal:180,p:2,c:42,f:0},
+                    {n:"Bia (330ml)",kcal:145,p:1,c:11,f:0},{n:"Nước tăng lực",kcal:110,p:0,c:28,f:0},{n:"Coconut water",kcal:45,p:0,c:11,f:0},
+                    {n:"Sữa đậu nành",kcal:80,p:7,c:6,f:4},{n:"Kombucha",kcal:30,p:0,c:7,f:0},{n:"Matcha latte",kcal:150,p:5,c:20,f:5},
+                    {n:"Electrolyte drink",kcal:20,p:0,c:5,f:0},
+                  ]},
+                  // CLEAN EATING
+                  {cat:"🥦 Clean Eating",items:[
+                    {n:"Salad gà + rau hỗn hợp",kcal:280,p:30,c:14,f:10},{n:"Ức gà luộc rau hấp",kcal:300,p:38,c:20,f:8},{n:"Cá hấp gừng hành",kcal:240,p:32,c:4,f:8},
+                    {n:"Tôm luộc + rau cải",kcal:200,p:28,c:8,f:4},{n:"Đậu hũ hấp",kcal:150,p:14,c:6,f:8},{n:"Rau củ hấp",kcal:80,p:4,c:16,f:0},
+                    {n:"Smoothie bowl",kcal:320,p:12,c:52,f:8},{n:"Gạo lứt + đậu xanh",kcal:320,p:14,c:58,f:3},{n:"Quinoa salad",kcal:350,p:14,c:55,f:8},
+                    {n:"Cá ngừ rau xà lách",kcal:220,p:30,c:8,f:6},{n:"Soup rau củ",kcal:120,p:5,c:22,f:2},{n:"Ức gà + súp lơ",kcal:280,p:36,c:14,f:8},
+                  ]},
+                ];
+
+                const [menuCat, setMenuCat] = React.useState(0);
+                const [menuSearch, setMenuSearch] = React.useState("");
+                const cat = MENU[menuCat];
+                const filtered = menuSearch ? MENU.flatMap(c=>c.items).filter(x=>x.n.toLowerCase().includes(menuSearch.toLowerCase())) : cat.items;
+                const totalItems = MENU.reduce((s,c)=>s+c.items.length,0);
+
+                return(
+                  <div style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:12,padding:"14px",marginTop:12}}>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:C.gold,letterSpacing:"2px",margin:"0 0 10px"}}>🍽️ THỰC ĐƠN — {totalItems} MÓN</p>
+                    
+                    {/* Search */}
+                    <input value={menuSearch} onChange={e=>setMenuSearch(e.target.value)} placeholder="🔍 Tìm món ăn..."
+                      style={{width:"100%",background:"#111",border:"1px solid #333",borderRadius:8,color:"#fff",padding:"8px 12px",fontSize:12,boxSizing:"border-box",marginBottom:10}}/>
+
+                    {/* Category tabs */}
+                    {!menuSearch&&(
+                      <div style={{display:"flex",gap:4,overflowX:"auto",marginBottom:10,paddingBottom:4}}>
+                        {MENU.map((c,i)=>(
+                          <button key={i} onClick={()=>setMenuCat(i)}
+                            style={{flexShrink:0,padding:"4px 10px",borderRadius:20,background:menuCat===i?"rgba(245,200,66,0.15)":"transparent",border:`1px solid ${menuCat===i?"rgba(245,200,66,0.4)":"rgba(255,255,255,0.08)"}`,color:menuCat===i?C.gold:C.mu,fontFamily:FM,fontSize:"8px",cursor:"pointer",whiteSpace:"nowrap"}}>
+                            {c.cat}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Items */}
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:6}}>
+                      {filtered.map((item,i)=>(
+                        <div key={i} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:8,padding:"8px 10px"}}>
+                          <p style={{fontSize:11,fontWeight:600,color:"#fff",margin:"0 0 4px",lineHeight:1.3}}>{item.n}</p>
+                          <p style={{fontFamily:FM,fontSize:"8px",color:"#f97316",margin:"0 0 2px"}}>{item.kcal} kcal</p>
+                          <div style={{display:"flex",gap:6}}>
+                            <span style={{fontFamily:FM,fontSize:"7px",color:"#60a5fa"}}>P:{item.p}g</span>
+                            <span style={{fontFamily:FM,fontSize:"7px",color:"#f5c842"}}>C:{item.c}g</span>
+                            <span style={{fontFamily:FM,fontSize:"7px",color:"#a78bfa"}}>F:{item.f}g</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {menuSearch&&<p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"8px 0 0",textAlign:"center"}}>{filtered.length} kết quả</p>}
+                  </div>
+                );
+              })()}
 
             </div>
           );
