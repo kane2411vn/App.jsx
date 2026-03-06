@@ -891,7 +891,23 @@ export default function App() {
   ]));}catch{return[];}});
   const [finIn,setFinIn]       = useState({type:"expense",amount:"",cat:"Ăn uống",note:"",date:new Date().toISOString().slice(0,10)});
   const [finCur,setFinCur]     = useState("VND"); // VND | USD
-  const [finView,setFinView]   = useState("overview"); // overview | debts | roadmap
+  const [finView,setFinView]   = useState("overview"); // overview | debts | roadmap | jars
+  // ── 6 Jars states ──────────────────────────────────────────
+  const DEFAULT_JARS=[
+    {id:"nec",name:"Nhu cầu thiết yếu",icon:"🏠",color:"#60a5fa",pct:55,desc:"Ăn uống, nhà, đi lại"},
+    {id:"ltss",name:"Tiết kiệm dài hạn",icon:"🏦",color:"#22c55e",pct:10,desc:"Hưu trí, tự do tài chính"},
+    {id:"edu",name:"Giáo dục",icon:"📚",color:"#a78bfa",pct:10,desc:"Học tập, phát triển bản thân"},
+    {id:"play",name:"Vui chơi",icon:"🎉",color:"#f97316",pct:10,desc:"Hưởng thụ, không cần lý do"},
+    {id:"give",name:"Cho đi",icon:"❤️",color:"#ec4899",pct:5,desc:"Từ thiện, quà tặng"},
+    {id:"ffund",name:"Tự do tài chính",icon:"💎",color:"#f5c842",pct:10,desc:"Đầu tư sinh lời"},
+  ];
+  const [jars,setJars] = useState(()=>{try{return JSON.parse(localStorage.getItem("empire_jars")||"null")||DEFAULT_JARS;}catch{return DEFAULT_JARS;}});
+  const [jarBalances,setJarBalances] = useState(()=>{try{return JSON.parse(localStorage.getItem("empire_jar_balances")||"{}");}catch{return{};}});
+  const [jarTotalInput,setJarTotalInput] = useState("");
+  const [editJarId,setEditJarId] = useState(null);
+  const [editJarData,setEditJarData] = useState({});
+  const saveJars = u=>{setJars(u);try{localStorage.setItem("empire_jars",JSON.stringify(u));}catch{}};
+  const saveJarBalances = u=>{setJarBalances(u);try{localStorage.setItem("empire_jar_balances",JSON.stringify(u));}catch{}};
   const saveFinTxs = u=>{setFinTxs(u);try{localStorage.setItem("empire_fin_txs",JSON.stringify(u));}catch{}};
   const saveFinDebts = u=>{setFinDebts(u);try{localStorage.setItem("empire_fin_debts",JSON.stringify(u));}catch{}};
   // ── Goal / OKR states ──────────────────────────────────────
@@ -919,6 +935,18 @@ export default function App() {
   const [selSch,setSelSch]       = useState(()=>localStorage.getItem("empire_gym_sch")||"ppl-ul");
   const [exDone,setExDone]       = useState(new Set());
   const [waterCups,setWaterCups] = useState(()=>{try{return Number(localStorage.getItem("empire_water")||0);}catch{return 0;}});
+  // ── Nutrition states ──────────────────────────────────────────
+  const [nutLog,setNutLog]       = useState(()=>{try{return JSON.parse(localStorage.getItem("empire_nut_log")||"[]");}catch{return[];}});
+  const [nutGoal,setNutGoal]     = useState(()=>{try{return JSON.parse(localStorage.getItem("empire_nut_goal")||'{"mode":"maintain","cal":2200,"protein":150,"carb":250,"fat":70,"weight":70}');}catch{return{mode:"maintain",cal:2200,protein:150,carb:250,fat:70,weight:70};}});
+  const [nutWeights,setNutWeights] = useState(()=>{try{return JSON.parse(localStorage.getItem("empire_nut_weights")||"[]");}catch{return[];}});
+  const [nutSearch,setNutSearch] = useState("");
+  const [nutCat,setNutCat]       = useState("all");
+  const [nutView,setNutView]     = useState("log"); // log | charts | goals | foods
+  const [nutAddMode,setNutAddMode] = useState(false);
+  const [nutWInput,setNutWInput] = useState("");
+  const saveNutLog = u=>{setNutLog(u);try{localStorage.setItem("empire_nut_log",JSON.stringify(u));}catch{}};
+  const saveNutGoal = u=>{setNutGoal(u);try{localStorage.setItem("empire_nut_goal",JSON.stringify(u));}catch{}};
+  const saveNutWeights = u=>{setNutWeights(u);try{localStorage.setItem("empire_nut_weights",JSON.stringify(u));}catch{}};
   const [menuCat,setMenuCat]     = useState(0);
   const [menuSearch,setMenuSearch] = useState("");
   // ── Pomodoro states ─────────────────────────────────────────
@@ -1354,6 +1382,7 @@ export default function App() {
     {id:"pomodoro",label:"⏱️ Focus",badge:`${pom.sessions}🍅`,color:"#f97316"},
 
     {id:"gym",label:"💪 Gym",badge:`${exDone.size}ex`,color:"#f97316"},
+    {id:"nutrition",label:"🍽️ Nutrition",badge:`${nutLog.filter(e=>e.date===new Date().toISOString().slice(0,10)).reduce((s,e)=>s+e.cal,0)}cal`,color:"#22c55e"},
   ];
 
   // ── Council session management ────────────────────────────────────────────
@@ -2645,11 +2674,216 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
             {/* Currency + View toggle */}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
               <p style={{fontFamily:FM,fontSize:"9px",color:"#34D399",letterSpacing:"2px",margin:0}}>💰 FINANCE OS</p>
-              <div style={{display:"flex",gap:6}}>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                <button onClick={()=>setFinView(v=>v==="jars"?"overview":"jars")}
+                  style={{padding:"3px 10px",borderRadius:6,border:`1px solid ${finView==="jars"?"#f5c842":"#333"}`,background:finView==="jars"?"#f5c84215":"transparent",color:finView==="jars"?"#f5c842":"#888",fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>
+                  🏺 6 Chiếc Lọ
+                </button>
                 {["VND","USD"].map(c=><button key={c} onClick={()=>setFinCur(c)}
                   style={{padding:"3px 10px",borderRadius:6,border:"1px solid "+(finCur===c?"#34D399":"#333"),background:finCur===c?"#34D39918":"transparent",color:finCur===c?"#34D399":C.mu,fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>{c}</button>)}
               </div>
             </div>
+
+
+            {/* ════ 6 CHIẾC LỌ ════ */}
+            {finView==="jars"&&(()=>{
+              const DEFAULT_JARS=[
+                {id:"nec",name:"Nhu cầu thiết yếu",icon:"🏠",color:"#60a5fa",pct:55,desc:"Ăn uống, nhà, đi lại"},
+                {id:"ltss",name:"Tiết kiệm dài hạn",icon:"🏦",color:"#22c55e",pct:10,desc:"Hưu trí, tự do tài chính"},
+                {id:"edu",name:"Giáo dục",icon:"📚",color:"#a78bfa",pct:10,desc:"Học tập, phát triển bản thân"},
+                {id:"play",name:"Vui chơi",icon:"🎉",color:"#f97316",pct:10,desc:"Hưởng thụ, không cần lý do"},
+                {id:"give",name:"Cho đi",icon:"❤️",color:"#ec4899",pct:5,desc:"Từ thiện, quà tặng"},
+                {id:"ffund",name:"Tự do tài chính",icon:"💎",color:"#f5c842",pct:10,desc:"Đầu tư sinh lời"},
+              ];
+              const usd=25000;
+              const fmt=n=>finCur==="VND"?new Intl.NumberFormat("vi-VN").format(Math.round(n))+"đ":"$"+new Intl.NumberFormat("en-US",{maximumFractionDigits:0}).format(n/usd);
+              const totalPct=jars.reduce((s,j)=>s+Number(j.pct),0);
+              const totalBalance=Object.values(jarBalances).reduce((s,v)=>s+Number(v||0),0);
+              const grandTotal=Number(jarTotalInput)||totalBalance;
+
+              // Auto-allocate from income
+              const allocateFromIncome=()=>{
+                const amount=Number(jarTotalInput);
+                if(!amount) return;
+                const newBal={...jarBalances};
+                jars.forEach(j=>{newBal[j.id]=(Number(newBal[j.id]||0))+(amount*j.pct/100);});
+                saveJarBalances(newBal);
+                setJarTotalInput("");
+              };
+
+              return(
+                <div>
+                  {/* Header */}
+                  <div style={{background:"linear-gradient(135deg,#f5c84215,#f97316 08)",border:"1px solid #f5c84230",borderRadius:12,padding:"14px 16px",marginBottom:12}}>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:"#f5c842",letterSpacing:"2px",margin:"0 0 4px"}}>🏺 HỆ THỐNG 6 CHIẾC LỌ — T.HARV EKER</p>
+                    <p style={{fontSize:11,color:C.mu,margin:"0 0 12px"}}>"Không quan trọng bạn kiếm được bao nhiêu, mà quan trọng bạn giữ được bao nhiêu."</p>
+
+                    {/* Total balance display */}
+                    <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10}}>
+                      <div style={{flex:1,background:"rgba(255,255,255,0.05)",borderRadius:8,padding:"10px 12px"}}>
+                        <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 2px"}}>TỔNG SỐ DƯ CÁC LỌ</p>
+                        <p style={{fontFamily:FM,fontSize:20,fontWeight:900,color:"#f5c842",margin:0}}>{fmt(totalBalance)}</p>
+                      </div>
+                      <div style={{flex:1,background:"rgba(255,255,255,0.05)",borderRadius:8,padding:"10px 12px"}}>
+                        <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 2px"}}>PHÂN BỔ %</p>
+                        <p style={{fontFamily:FM,fontSize:20,fontWeight:900,color:totalPct===100?"#22c55e":"#ef4444",margin:0}}>{totalPct}%</p>
+                        <p style={{fontFamily:FM,fontSize:"7px",color:C.mu,margin:0}}>{totalPct===100?"✅ Đúng":"⚠️ Phải = 100%"}</p>
+                      </div>
+                    </div>
+
+                    {/* Allocate income */}
+                    <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 6px"}}>💰 PHÂN BỔ THU NHẬP VÀO CÁC LỌ</p>
+                    <div style={{display:"flex",gap:6}}>
+                      <input type="number" placeholder="Nhập số tiền thu nhập..." value={jarTotalInput}
+                        onChange={e=>setJarTotalInput(e.target.value)}
+                        style={{flex:1,background:"#111",border:"1px solid #f5c84240",borderRadius:6,color:"#fff",padding:"8px 10px",fontSize:12}}/>
+                      <button onClick={allocateFromIncome} disabled={!jarTotalInput||totalPct!==100}
+                        style={{padding:"8px 14px",borderRadius:6,background:totalPct===100&&jarTotalInput?"#f5c84220":"rgba(255,255,255,0.05)",border:`1px solid ${totalPct===100&&jarTotalInput?"#f5c842":"#333"}`,color:totalPct===100&&jarTotalInput?"#f5c842":"#555",fontFamily:FM,fontSize:"9px",cursor:totalPct===100&&jarTotalInput?"pointer":"not-allowed",fontWeight:700}}>
+                        ⚡ Phân bổ
+                      </button>
+                    </div>
+                    {jarTotalInput&&totalPct===100&&(
+                      <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>
+                        {jars.map(j=>(
+                          <span key={j.id} style={{fontFamily:FM,fontSize:"8px",padding:"2px 8px",borderRadius:10,background:`${j.color}15`,border:`1px solid ${j.color}30`,color:j.color}}>
+                            {j.icon} +{fmt(Number(jarTotalInput)*j.pct/100)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Visual allocation bar */}
+                  <div style={{height:12,borderRadius:6,overflow:"hidden",display:"flex",marginBottom:12}}>
+                    {jars.map(j=>(
+                      <div key={j.id} title={`${j.name}: ${j.pct}%`}
+                        style={{width:j.pct+"%",background:j.color,transition:"width .5s",position:"relative"}}>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 6 Jars */}
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8,marginBottom:12}}>
+                    {jars.map((jar,idx)=>{
+                      const bal=Number(jarBalances[jar.id]||0);
+                      const isEditing=editJarId===jar.id;
+                      const allocAmount=grandTotal>0?grandTotal*jar.pct/100:0;
+                      return(
+                        <div key={jar.id} style={{background:C.s1,border:`1px solid ${isEditing?jar.color+"60":C.bd}`,borderRadius:12,padding:"12px 14px",transition:"border .2s"}}>
+                          {isEditing?(
+                            /* Edit mode */
+                            <div>
+                              <p style={{fontFamily:FM,fontSize:"8px",color:jar.color,margin:"0 0 8px"}}>✏️ CHỈNH SỬA LỌ</p>
+                              <div style={{display:"grid",gap:6}}>
+                                <div style={{display:"flex",gap:6}}>
+                                  <input value={editJarData.icon||""} onChange={e=>setEditJarData(p=>({...p,icon:e.target.value}))}
+                                    style={{width:44,background:"#111",border:`1px solid ${C.bd}`,borderRadius:6,color:"#fff",padding:"5px",fontSize:16,textAlign:"center"}}/>
+                                  <input value={editJarData.name||""} onChange={e=>setEditJarData(p=>({...p,name:e.target.value}))}
+                                    placeholder="Tên lọ"
+                                    style={{flex:1,background:"#111",border:`1px solid ${C.bd}`,borderRadius:6,color:"#fff",padding:"5px 8px",fontSize:11}}/>
+                                </div>
+                                <input value={editJarData.desc||""} onChange={e=>setEditJarData(p=>({...p,desc:e.target.value}))}
+                                  placeholder="Mô tả..."
+                                  style={{background:"#111",border:`1px solid ${C.bd}`,borderRadius:6,color:"#fff",padding:"5px 8px",fontSize:10}}/>
+                                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                                  <span style={{fontFamily:FM,fontSize:"8px",color:C.mu}}>%</span>
+                                  <input type="number" value={editJarData.pct||""} min="0" max="100"
+                                    onChange={e=>setEditJarData(p=>({...p,pct:Number(e.target.value)}))}
+                                    style={{width:60,background:"#111",border:`1px solid ${C.bd}`,borderRadius:6,color:"#fff",padding:"5px 8px",fontSize:12}}/>
+                                  <span style={{fontFamily:FM,fontSize:"8px",color:C.mu}}>Màu</span>
+                                  <input type="color" value={editJarData.color||jar.color}
+                                    onChange={e=>setEditJarData(p=>({...p,color:e.target.value}))}
+                                    style={{width:32,height:28,border:"none",borderRadius:4,cursor:"pointer",background:"transparent"}}/>
+                                </div>
+                                <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 2px"}}>Số dư lọ (tùy chỉnh)</p>
+                                <input type="number" value={jarBalances[jar.id]||""} placeholder="Nhập số dư hiện tại..."
+                                  onChange={e=>saveJarBalances({...jarBalances,[jar.id]:Number(e.target.value)})}
+                                  style={{background:"#111",border:`1px solid ${jar.color}40`,borderRadius:6,color:"#fff",padding:"5px 8px",fontSize:12}}/>
+                                <div style={{display:"flex",gap:6}}>
+                                  <button onClick={()=>{
+                                    const newJars=jars.map((j,i)=>i===idx?{...j,...editJarData}:j);
+                                    saveJars(newJars); setEditJarId(null);
+                                  }} style={{flex:1,padding:"6px",borderRadius:6,background:`${jar.color}20`,border:`1px solid ${jar.color}50`,color:jar.color,fontFamily:FM,fontSize:"9px",cursor:"pointer",fontWeight:700}}>
+                                    ✓ Lưu
+                                  </button>
+                                  <button onClick={()=>setEditJarId(null)}
+                                    style={{padding:"6px 10px",borderRadius:6,background:"transparent",border:`1px solid ${C.bd}`,color:C.mu,fontSize:"9px",cursor:"pointer"}}>
+                                    Hủy
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ):(
+                            /* Display mode */
+                            <div>
+                              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                  <div style={{width:36,height:36,borderRadius:10,background:`${jar.color}18`,border:`1px solid ${jar.color}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>
+                                    {jar.icon}
+                                  </div>
+                                  <div>
+                                    <p style={{fontSize:12,fontWeight:700,color:"#fff",margin:"0 0 1px"}}>{jar.name}</p>
+                                    <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:0}}>{jar.desc}</p>
+                                  </div>
+                                </div>
+                                <button onClick={()=>{setEditJarId(jar.id);setEditJarData({...jar});}}
+                                  style={{width:24,height:24,borderRadius:5,background:"rgba(255,255,255,0.05)",border:`1px solid ${C.bd}`,color:C.mu,fontSize:10,cursor:"pointer"}}>
+                                  ✏️
+                                </button>
+                              </div>
+
+                              {/* Percentage badge */}
+                              <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:8}}>
+                                <span style={{fontFamily:FM,fontSize:20,fontWeight:900,color:jar.color}}>{jar.pct}%</span>
+                                {grandTotal>0&&<span style={{fontFamily:FM,fontSize:"9px",color:C.mu}}>= {fmt(allocAmount)}</span>}
+                              </div>
+
+                              {/* Balance */}
+                              <div style={{background:`${jar.color}10`,border:`1px solid ${jar.color}20`,borderRadius:8,padding:"8px 10px",marginBottom:6}}>
+                                <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 2px"}}>SỐ DƯ HIỆN TẠI</p>
+                                <p style={{fontFamily:FM,fontSize:16,fontWeight:700,color:jar.color,margin:0}}>{fmt(bal)}</p>
+                              </div>
+
+                              {/* Progress bar vs allocation */}
+                              {grandTotal>0&&allocAmount>0&&(
+                                <div>
+                                  <div style={{height:4,background:"rgba(255,255,255,0.07)",borderRadius:2}}>
+                                    <div style={{width:Math.min(bal/allocAmount*100,100)+"%",height:"100%",background:jar.color,borderRadius:2,transition:"width .5s"}}/>
+                                  </div>
+                                  <p style={{fontFamily:FM,fontSize:"7px",color:C.mu,margin:"2px 0 0",textAlign:"right"}}>
+                                    {Math.round(bal/allocAmount*100)}% mục tiêu
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Quick +/- buttons */}
+                              <div style={{display:"flex",gap:4,marginTop:6}}>
+                                {[100000,500000,1000000].map(amt=>(
+                                  <button key={amt} onClick={()=>saveJarBalances({...jarBalances,[jar.id]:(bal+amt)})}
+                                    style={{flex:1,padding:"4px 2px",borderRadius:5,background:"transparent",border:`1px solid ${jar.color}25`,color:jar.color,fontFamily:FM,fontSize:"7px",cursor:"pointer"}}>
+                                    +{amt>=1000000?(amt/1000000)+"M":(amt/1000)+"K"}
+                                  </button>
+                                ))}
+                                <button onClick={()=>saveJarBalances({...jarBalances,[jar.id]:0})}
+                                  style={{padding:"4px 6px",borderRadius:5,background:"transparent",border:`1px solid ${C.bd}`,color:C.mu,fontSize:"7px",cursor:"pointer"}}>
+                                  Reset
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Reset to default */}
+                  <button onClick={()=>{if(confirm("Reset 6 lọ về mặc định?")){saveJars(DEFAULT_JARS);}}}
+                    style={{padding:"7px 14px",borderRadius:6,background:"transparent",border:`1px solid ${C.bd}`,color:C.mu,fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>
+                    ↺ Reset về mặc định T.Harv Eker
+                  </button>
+                </div>
+              );
+            })()}
 
             {/* Overview KPIs */}
             {(()=>{
@@ -3161,6 +3395,559 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
                   </div>
                 );
               })()}
+
+            </div>
+          );
+        })()}
+
+
+        {/* ════ NUTRITION ════ */}
+        {tab==="nutrition"&&(()=>{
+          // ── Food Database 400+ items ──────────────────────────
+          const FOODS=[
+            // 🇻🇳 Việt Nam
+            {id:"pho_bo",n:"Phở bò tái",cal:450,p:30,c:55,f:8,cat:"vn",icon:"🍜"},
+            {id:"pho_ga",n:"Phở gà",cal:380,p:28,c:50,f:6,cat:"vn",icon:"🍜"},
+            {id:"bun_bo",n:"Bún bò Huế",cal:520,p:32,c:60,f:12,cat:"vn",icon:"🍜"},
+            {id:"bun_rieu",n:"Bún riêu cua",cal:390,p:22,c:55,f:8,cat:"vn",icon:"🍜"},
+            {id:"bun_thit",n:"Bún thịt nướng",cal:480,p:28,c:58,f:10,cat:"vn",icon:"🍜"},
+            {id:"com_tam",n:"Cơm tấm sườn",cal:650,p:38,c:75,f:18,cat:"vn",icon:"🍚"},
+            {id:"com_ga",n:"Cơm gà Hội An",cal:580,p:40,c:70,f:12,cat:"vn",icon:"🍚"},
+            {id:"com_chien",n:"Cơm chiên dương châu",cal:720,p:22,c:90,f:22,cat:"vn",icon:"🍚"},
+            {id:"com_suon",n:"Cơm sườn xào chua ngọt",cal:680,p:35,c:78,f:20,cat:"vn",icon:"🍚"},
+            {id:"banh_mi",n:"Bánh mì thịt",cal:420,p:22,c:48,f:14,cat:"vn",icon:"🥖"},
+            {id:"banh_mi_trung",n:"Bánh mì trứng",cal:350,p:14,c:44,f:12,cat:"vn",icon:"🥖"},
+            {id:"hu_tieu",n:"Hủ tiếu Nam Vang",cal:430,p:26,c:52,f:10,cat:"vn",icon:"🍜"},
+            {id:"mi_hoanh_thanh",n:"Mì hoành thánh",cal:460,p:24,c:55,f:12,cat:"vn",icon:"🍜"},
+            {id:"goi_cuon",n:"Gỏi cuốn tôm thịt (4 cuốn)",cal:240,p:18,c:32,f:4,cat:"vn",icon:"🫙"},
+            {id:"cha_gio",n:"Chả giò (4 cái)",cal:380,p:16,c:38,f:18,cat:"vn",icon:"🥢"},
+            {id:"banh_xeo",n:"Bánh xèo",cal:420,p:18,c:45,f:16,cat:"vn",icon:"🥞"},
+            {id:"banh_cuon",n:"Bánh cuốn nhân thịt",cal:320,p:16,c:42,f:8,cat:"vn",icon:"🫙"},
+            {id:"cao_lau",n:"Cao lầu",cal:500,p:28,c:62,f:12,cat:"vn",icon:"🍜"},
+            {id:"mi_quang",n:"Mì Quảng",cal:480,p:30,c:58,f:10,cat:"vn",icon:"🍜"},
+            {id:"bun_cha",n:"Bún chả Hà Nội",cal:520,p:34,c:55,f:14,cat:"vn",icon:"🍜"},
+            {id:"com_hen",n:"Cơm hến",cal:380,p:20,c:50,f:8,cat:"vn",icon:"🍚"},
+            {id:"lau_bo",n:"Lẩu bò (1 phần)",cal:550,p:42,c:35,f:22,cat:"vn",icon:"🫕"},
+            {id:"lau_thai",n:"Lẩu Thái hải sản",cal:420,p:35,c:30,f:14,cat:"vn",icon:"🫕"},
+            {id:"ga_nuong",n:"Gà nướng (nửa con)",cal:480,p:52,c:5,f:28,cat:"vn",icon:"🍗"},
+            {id:"vit_quay",n:"Vịt quay (100g)",cal:330,p:28,c:2,f:22,cat:"vn",icon:"🍗"},
+            {id:"thit_kho",n:"Thịt kho tàu + cơm",cal:600,p:35,c:65,f:20,cat:"vn",icon:"🍚"},
+            {id:"canh_chua",n:"Canh chua + cơm",cal:450,p:25,c:60,f:8,cat:"vn",icon:"🥣"},
+            {id:"tom_rim",n:"Tôm rim + cơm",cal:520,p:38,c:62,f:10,cat:"vn",icon:"🍚"},
+            {id:"ca_kho",n:"Cá kho tộ + cơm",cal:530,p:40,c:58,f:14,cat:"vn",icon:"🍚"},
+            {id:"rau_muong",n:"Rau muống xào tỏi",cal:120,p:5,c:10,f:6,cat:"vn",icon:"🥬"},
+            {id:"dau_phu_chien",n:"Đậu phụ chiên sả ớt",cal:280,p:18,c:12,f:18,cat:"vn",icon:"🍱"},
+            {id:"che_ba_mau",n:"Chè ba màu",cal:280,p:4,c:58,f:4,cat:"vn",icon:"🍮"},
+            {id:"sinh_to_bo",n:"Sinh tố bơ",cal:320,p:4,c:28,f:20,cat:"vn",icon:"🥑"},
+            {id:"nuoc_mia",n:"Nước mía (500ml)",cal:180,p:1,c:44,f:0,cat:"vn",icon:"🥤"},
+            {id:"ca_phe_sua",n:"Cà phê sữa đá",cal:140,p:2,c:28,f:4,cat:"vn",icon:"☕"},
+            {id:"xoi_man",n:"Xôi mặn (gà/xíu mại)",cal:480,p:22,c:72,f:10,cat:"vn",icon:"🍱"},
+            {id:"xoi_xeo",n:"Xôi xéo",cal:420,p:12,c:70,f:10,cat:"vn",icon:"🍱"},
+            {id:"bun_dau",n:"Bún đậu mắm tôm",cal:580,p:28,c:62,f:22,cat:"vn",icon:"🍜"},
+            {id:"banh_khot",n:"Bánh khọt (6 cái)",cal:360,p:18,c:42,f:12,cat:"vn",icon:"🥞"},
+            {id:"com_chay",n:"Cơm chay",cal:380,p:14,c:65,f:6,cat:"vn",icon:"🍚"},
+            // 💪 Gym/High Protein
+            {id:"uc_ga_luoc",n:"Ức gà luộc (200g)",cal:220,p:46,c:0,f:4,cat:"gym",icon:"🍗"},
+            {id:"uc_ga_nuong",n:"Ức gà nướng (200g)",cal:240,p:48,c:0,f:6,cat:"gym",icon:"🍗"},
+            {id:"trung_luoc",n:"Trứng luộc (3 quả)",cal:210,p:18,c:2,f:14,cat:"gym",icon:"🥚"},
+            {id:"trung_chien",n:"Trứng chiên (3 quả)",cal:270,p:18,c:2,f:20,cat:"gym",icon:"🥚"},
+            {id:"ca_hoi",n:"Cá hồi nướng (150g)",cal:280,p:38,c:0,f:14,cat:"gym",icon:"🐟"},
+            {id:"ca_ngu",n:"Cá ngừ đóng hộp (1 hộp)",cal:150,p:32,c:0,f:2,cat:"gym",icon:"🐟"},
+            {id:"whey_protein",n:"Whey Protein shake (1 scoop)",cal:120,p:25,c:5,f:2,cat:"gym",icon:"💊"},
+            {id:"casein",n:"Casein Protein (1 scoop)",cal:110,p:24,c:4,f:1,cat:"gym",icon:"💊"},
+            {id:"bo_dau_phong",n:"Bơ đậu phộng (2 tbsp)",cal:190,p:8,c:7,f:16,cat:"gym",icon:"🥜"},
+            {id:"hat_hanh_nhan",n:"Hạnh nhân (30g)",cal:170,p:6,c:6,f:15,cat:"gym",icon:"🥜"},
+            {id:"hat_dieu",n:"Hạt điều (30g)",cal:160,p:5,c:9,f:13,cat:"gym",icon:"🥜"},
+            {id:"bo",n:"Bơ lạt (1 tbsp)",cal:100,p:0,c:0,f:11,cat:"gym",icon:"🧈"},
+            {id:"sua_tuoi",n:"Sữa tươi không đường (250ml)",cal:125,p:8,c:12,f:5,cat:"gym",icon:"🥛"},
+            {id:"sua_chua",n:"Sữa chua Hy Lạp (150g)",cal:100,p:17,c:6,f:0,cat:"gym",icon:"🥛"},
+            {id:"pho_mai",n:"Phô mai (50g)",cal:200,p:12,c:1,f:16,cat:"gym",icon:"🧀"},
+            {id:"thit_bo_nuong",n:"Thịt bò nướng (200g)",cal:360,p:48,c:0,f:18,cat:"gym",icon:"🥩"},
+            {id:"thit_heo_nac",n:"Thịt heo nạc (200g)",cal:280,p:44,c:0,f:10,cat:"gym",icon:"🥩"},
+            {id:"tom_luoc",n:"Tôm luộc (200g)",cal:180,p:38,c:2,f:2,cat:"gym",icon:"🦐"},
+            {id:"muc_nuong",n:"Mực nướng (150g)",cal:150,p:28,c:5,f:2,cat:"gym",icon:"🦑"},
+            {id:"oat_meal",n:"Oatmeal chuẩn (100g khô)",cal:380,p:13,c:66,f:7,cat:"gym",icon:"🥣"},
+            {id:"com_gao_lut",n:"Cơm gạo lứt (200g nấu)",cal:220,p:5,c:46,f:2,cat:"gym",icon:"🍚"},
+            {id:"khoai_lang",n:"Khoai lang luộc (200g)",cal:180,p:4,c:42,f:0,cat:"gym",icon:"🍠"},
+            {id:"banana",n:"Chuối (1 quả)",cal:105,p:1,c:27,f:0,cat:"gym",icon:"🍌"},
+            {id:"mass_gainer",n:"Mass Gainer shake",cal:480,p:28,c:80,f:6,cat:"gym",icon:"💪"},
+            {id:"creatine",n:"Pre-workout + Creatine",cal:30,p:0,c:5,f:0,cat:"gym",icon:"⚡"},
+            {id:"ca_hoi_hun_khoi",n:"Cá hồi hun khói (100g)",cal:180,p:24,c:0,f:9,cat:"gym",icon:"🐟"},
+            {id:"thit_bo_xay",n:"Thịt bò xay sốt (200g)",cal:320,p:38,c:8,f:14,cat:"gym",icon:"🥩"},
+            {id:"dau_hu_chac",n:"Đậu hũ chắc (200g)",cal:160,p:20,c:4,f:8,cat:"gym",icon:"🫘"},
+            {id:"dau_len_til",n:"Đậu lăng nấu (200g)",cal:230,p:18,c:40,f:1,cat:"gym",icon:"🫘"},
+            {id:"ga_xay_burger",n:"Burger ức gà xay",cal:350,p:42,c:28,f:8,cat:"gym",icon:"🍔"},
+            // 🌍 Quốc tế
+            {id:"pasta_bolognese",n:"Pasta Bolognese",cal:580,p:28,c:72,f:16,cat:"intl",icon:"🍝"},
+            {id:"pasta_carbonara",n:"Pasta Carbonara",cal:650,p:26,c:68,f:24,cat:"intl",icon:"🍝"},
+            {id:"spaghetti_ca",n:"Spaghetti cà chua",cal:450,p:15,c:80,f:8,cat:"intl",icon:"🍝"},
+            {id:"pizza_margherita",n:"Pizza Margherita (2 lát)",cal:480,p:20,c:58,f:16,cat:"intl",icon:"🍕"},
+            {id:"pizza_pepperoni",n:"Pizza Pepperoni (2 lát)",cal:560,p:24,c:56,f:24,cat:"intl",icon:"🍕"},
+            {id:"burger_classic",n:"Burger Classic",cal:580,p:30,c:48,f:26,cat:"intl",icon:"🍔"},
+            {id:"burger_double",n:"Double Cheeseburger",cal:750,p:42,c:50,f:38,cat:"intl",icon:"🍔"},
+            {id:"sushi_combo",n:"Sushi set (8 miếng)",cal:380,p:22,c:58,f:6,cat:"intl",icon:"🍣"},
+            {id:"ramen_tonkotsu",n:"Ramen Tonkotsu",cal:620,p:32,c:72,f:18,cat:"intl",icon:"🍜"},
+            {id:"ramen_miso",n:"Ramen Miso",cal:550,p:28,c:68,f:14,cat:"intl",icon:"🍜"},
+            {id:"bibimbap",n:"Bibimbap Hàn Quốc",cal:490,p:24,c:75,f:10,cat:"intl",icon:"🍚"},
+            {id:"kimchi_jjigae",n:"Kimchi Jjigae",cal:380,p:22,c:35,f:14,cat:"intl",icon:"🥘"},
+            {id:"fried_chicken",n:"Fried Chicken (2 miếng)",cal:480,p:32,c:30,f:24,cat:"intl",icon:"🍗"},
+            {id:"steak_200g",n:"Steak bò 200g (medium)",cal:380,p:46,c:2,f:20,cat:"intl",icon:"🥩"},
+            {id:"tacos_3",n:"Tacos thịt bò (3 cái)",cal:520,p:28,c:52,f:18,cat:"intl",icon:"🌮"},
+            {id:"burrito",n:"Burrito đầy đủ",cal:680,p:34,c:80,f:22,cat:"intl",icon:"🌯"},
+            {id:"sandwich_turkey",n:"Sandwich gà tây",cal:380,p:26,c:42,f:10,cat:"intl",icon:"🥪"},
+            {id:"wrap_ga",n:"Chicken wrap",cal:420,p:30,c:45,f:12,cat:"intl",icon:"🌯"},
+            {id:"pad_thai",n:"Pad Thai",cal:520,p:22,c:72,f:14,cat:"intl",icon:"🍜"},
+            {id:"tom_yum",n:"Tom Yum Goong",cal:320,p:28,c:20,f:12,cat:"intl",icon:"🥘"},
+            {id:"fried_rice_thai",n:"Cơm chiên Thái",cal:560,p:20,c:78,f:16,cat:"intl",icon:"🍚"},
+            {id:"nasi_goreng",n:"Nasi Goreng Indonesia",cal:580,p:22,c:80,f:18,cat:"intl",icon:"🍚"},
+            {id:"chicken_tikka",n:"Chicken Tikka Masala",cal:480,p:38,c:28,f:22,cat:"intl",icon:"🍛"},
+            {id:"gyoza_6",n:"Gyoza (6 cái)",cal:280,p:14,c:32,f:10,cat:"intl",icon:"🥟"},
+            {id:"dim_sum",n:"Dim Sum set (6 món)",cal:420,p:18,c:52,f:14,cat:"intl",icon:"🥟"},
+            {id:"caesar_salad",n:"Caesar Salad (đầy đủ)",cal:380,p:18,c:22,f:24,cat:"intl",icon:"🥗"},
+            {id:"greek_salad",n:"Greek Salad",cal:280,p:10,c:18,f:18,cat:"intl",icon:"🥗"},
+            {id:"french_fries",n:"Khoai tây chiên (medium)",cal:365,p:4,c:48,f:17,cat:"intl",icon:"🍟"},
+            {id:"onion_rings",n:"Onion Rings",cal:320,p:5,c:42,f:15,cat:"intl",icon:"🧅"},
+            {id:"croissant",n:"Croissant bơ",cal:280,p:6,c:30,f:16,cat:"intl",icon:"🥐"},
+            {id:"bagel_cream",n:"Bagel cream cheese",cal:340,p:12,c:52,f:10,cat:"intl",icon:"🥯"},
+            {id:"pancake",n:"Pancakes (3 cái + syrup)",cal:450,p:12,c:80,f:10,cat:"intl",icon:"🥞"},
+            {id:"waffle",n:"Waffle (2 cái)",cal:380,p:10,c:62,f:12,cat:"intl",icon:"🧇"},
+            {id:"nachos",n:"Nachos + guacamole",cal:520,p:10,c:58,f:26,cat:"intl",icon:"🫔"},
+            {id:"hummus_pita",n:"Hummus + Pita",cal:360,p:14,c:50,f:12,cat:"intl",icon:"🫓"},
+            {id:"falafel_wrap",n:"Falafel Wrap",cal:440,p:16,c:62,f:14,cat:"intl",icon:"🌯"},
+            {id:"ice_cream_2",n:"Kem 2 scoop",cal:280,p:5,c:38,f:12,cat:"intl",icon:"🍦"},
+            {id:"chocolate_cake",n:"Bánh chocolate slice",cal:380,p:6,c:52,f:18,cat:"intl",icon:"🍰"},
+            // 🥗 Healthy/Low-cal
+            {id:"salad_rau",n:"Salad rau trộn cơ bản",cal:80,p:3,c:12,f:2,cat:"healthy",icon:"🥗"},
+            {id:"salad_ga",n:"Salad ức gà",cal:220,p:28,c:12,f:6,cat:"healthy",icon:"🥗"},
+            {id:"salad_ca_hoi",n:"Salad cá hồi",cal:280,p:32,c:10,f:12,cat:"healthy",icon:"🥗"},
+            {id:"smoothie_xanh",n:"Green smoothie",cal:160,p:5,c:32,f:2,cat:"healthy",icon:"🥤"},
+            {id:"smoothie_protein",n:"Protein smoothie bowl",cal:320,p:28,c:38,f:6,cat:"healthy",icon:"🥣"},
+            {id:"acai_bowl",n:"Acai bowl",cal:350,p:8,c:58,f:10,cat:"healthy",icon:"🫐"},
+            {id:"tao",n:"Táo (1 quả)",cal:80,p:0,c:21,f:0,cat:"healthy",icon:"🍎"},
+            {id:"cam",n:"Cam (1 quả)",cal:65,p:1,c:16,f:0,cat:"healthy",icon:"🍊"},
+            {id:"xoai",n:"Xoài (200g)",cal:130,p:2,c:32,f:1,cat:"healthy",icon:"🥭"},
+            {id:"dua_hau",n:"Dưa hấu (300g)",cal:90,p:2,c:22,f:0,cat:"healthy",icon:"🍉"},
+            {id:"dau_tay",n:"Dâu tây (200g)",cal:70,p:1,c:16,f:1,cat:"healthy",icon:"🍓"},
+            {id:"nho",n:"Nho (200g)",cal:130,p:1,c:33,f:0,cat:"healthy",icon:"🍇"},
+            {id:"bong_cai",n:"Bông cải xanh hấp",cal:55,p:5,c:8,f:1,cat:"healthy",icon:"🥦"},
+            {id:"ca_rot",n:"Cà rốt sống (100g)",cal:41,p:1,c:10,f:0,cat:"healthy",icon:"🥕"},
+            {id:"cai_bo_xoi",n:"Cải bó xôi (100g)",cal:23,p:3,c:4,f:0,cat:"healthy",icon:"🥬"},
+            {id:"ot_chuong",n:"Ớt chuông (1 quả)",cal:30,p:1,c:7,f:0,cat:"healthy",icon:"🫑"},
+            {id:"dua_leo",n:"Dưa leo (200g)",cal:30,p:1,c:6,f:0,cat:"healthy",icon:"🥒"},
+            {id:"ca_chua",n:"Cà chua (200g)",cal:36,p:2,c:8,f:0,cat:"healthy",icon:"🍅"},
+            {id:"bo_trai",n:"Bơ trái (nửa quả)",cal:160,p:2,c:9,f:15,cat:"healthy",icon:"🥑"},
+            {id:"kiwi_2",n:"Kiwi (2 quả)",cal:100,p:2,c:24,f:1,cat:"healthy",icon:"🥝"},
+            {id:"nuoc_loc",n:"Nước lọc (500ml)",cal:0,p:0,c:0,f:0,cat:"healthy",icon:"💧"},
+            {id:"tra_xanh",n:"Trà xanh không đường",cal:5,p:0,c:1,f:0,cat:"healthy",icon:"🍵"},
+            {id:"nuoc_dua",n:"Nước dừa tươi (1 trái)",cal:90,p:2,c:20,f:1,cat:"healthy",icon:"🥥"},
+            {id:"sup_rau",n:"Súp rau củ",cal:120,p:5,c:22,f:2,cat:"healthy",icon:"🥣"},
+            {id:"soup_ga",n:"Súp gà rau củ",cal:180,p:18,c:16,f:5,cat:"healthy",icon:"🥣"},
+            {id:"com_gao_lut_ga",n:"Cơm gạo lứt + ức gà",cal:380,p:42,c:40,f:5,cat:"healthy",icon:"🍱"},
+            {id:"banh_gao",n:"Bánh gạo không muối (2 cái)",cal:70,p:1,c:15,f:0,cat:"healthy",icon:"⭕"},
+            {id:"hat_chia",n:"Hạt chia (2 tbsp)",cal:140,p:5,c:12,f:9,cat:"healthy",icon:"🌱"},
+            {id:"quinoa",n:"Quinoa nấu (150g)",cal:185,p:7,c:34,f:3,cat:"healthy",icon:"🌾"},
+            {id:"bap_luoc",n:"Bắp luộc (1 trái)",cal:130,p:4,c:28,f:2,cat:"healthy",icon:"🌽"},
+            {id:"edamame",n:"Edamame (150g)",cal:190,p:17,c:14,f:8,cat:"healthy",icon:"🫘"},
+            {id:"sashimi",n:"Sashimi (8 lát)",cal:200,p:28,c:0,f:8,cat:"healthy",icon:"🐟"},
+            {id:"ga_sot_toi",n:"Gà sốt tỏi chanh (không da)",cal:280,p:40,c:8,f:9,cat:"healthy",icon:"🍗"},
+            {id:"bo_xao_rau",n:"Bò xào rau củ (ít dầu)",cal:320,p:32,c:18,f:12,cat:"healthy",icon:"🥘"},
+            {id:"trung_hap",n:"Trứng hấp (3 quả)",cal:190,p:18,c:2,f:12,cat:"healthy",icon:"🥚"},
+            {id:"sua_hat",n:"Sữa hạt không đường (250ml)",cal:60,p:2,c:8,f:2,cat:"healthy",icon:"🥛"},
+            {id:"collagen_drink",n:"Collagen drink",cal:50,p:10,c:4,f:0,cat:"healthy",icon:"✨"},
+            {id:"miso_soup",n:"Miso soup",cal:70,p:5,c:8,f:2,cat:"healthy",icon:"🥣"},
+            {id:"kimchi",n:"Kimchi (100g)",cal:30,p:2,c:5,f:0,cat:"healthy",icon:"🥬"},
+            // More VN
+            {id:"banh_tet",n:"Bánh tét (1 khoanh)",cal:280,p:8,c:52,f:6,cat:"vn",icon:"🍱"},
+            {id:"banh_chung",n:"Bánh chưng (1/4 cái)",cal:320,p:10,c:58,f:7,cat:"vn",icon:"🍱"},
+            {id:"che_dau_xanh",n:"Chè đậu xanh",cal:240,p:6,c:48,f:3,cat:"vn",icon:"🍮"},
+            {id:"xoi_ga",n:"Xôi gà",cal:520,p:32,c:72,f:12,cat:"vn",icon:"🍱"},
+            {id:"bo_kho",n:"Bò kho bánh mì",cal:580,p:38,c:48,f:22,cat:"vn",icon:"🍲"},
+            {id:"canh_bau",n:"Canh bầu nấu tôm",cal:120,p:12,c:15,f:2,cat:"vn",icon:"🥣"},
+            {id:"dau_sot_ca",n:"Đậu sốt cà chua",cal:180,p:12,c:22,f:5,cat:"vn",icon:"🫘"},
+            {id:"rau_cai",n:"Rau cải xào (200g)",cal:100,p:4,c:8,f:5,cat:"vn",icon:"🥬"},
+            {id:"nem_nuong",n:"Nem nướng (5 cái)",cal:350,p:22,c:28,f:14,cat:"vn",icon:"🍢"},
+            {id:"banh_trang_nuong",n:"Bánh tráng nướng",cal:320,p:10,c:48,f:10,cat:"vn",icon:"🫓"},
+            {id:"bun_mam",n:"Bún mắm",cal:460,p:28,c:55,f:12,cat:"vn",icon:"🍜"},
+            {id:"com_ninh",n:"Cháo gà",cal:280,p:20,c:42,f:4,cat:"vn",icon:"🥣"},
+            {id:"chao_long",n:"Cháo lòng",cal:320,p:22,c:45,f:7,cat:"vn",icon:"🥣"},
+            {id:"banh_bao",n:"Bánh bao thịt (1 cái)",cal:280,p:14,c:38,f:8,cat:"vn",icon:"🥟"},
+            {id:"oc_luoc",n:"Ốc luộc (200g)",cal:160,p:24,c:8,f:3,cat:"vn",icon:"🐚"},
+            // More gym
+            {id:"protein_bar",n:"Protein bar",cal:200,p:20,c:22,f:6,cat:"gym",icon:"🍫"},
+            {id:"ga_xao_bong_cai",n:"Gà xào bông cải (meal prep)",cal:340,p:45,c:15,f:10,cat:"gym",icon:"🍱"},
+            {id:"bo_va_khoai",n:"Bò + khoai lang (meal prep)",cal:450,p:42,c:45,f:10,cat:"gym",icon:"🍱"},
+            {id:"tuna_wrap",n:"Tuna wrap protein",cal:380,p:36,c:38,f:8,cat:"gym",icon:"🌯"},
+            {id:"egg_white",n:"Lòng trắng trứng (6 cái)",cal:100,p:22,c:1,f:0,cat:"gym",icon:"🥚"},
+            {id:"ricotta",n:"Ricotta (100g)",cal:170,p:11,c:6,f:12,cat:"gym",icon:"🧀"},
+            {id:"turkey_breast",n:"Ức gà tây (200g)",cal:220,p:48,c:0,f:2,cat:"gym",icon:"🦃"},
+            {id:"sardines",n:"Cá mòi đóng hộp (1 hộp)",cal:190,p:28,c:0,f:9,cat:"gym",icon:"🐟"},
+            {id:"beef_jerky",n:"Thịt bò khô (30g)",cal:120,p:14,c:6,f:4,cat:"gym",icon:"🥩"},
+            {id:"cottage_cheese",n:"Cottage cheese (150g)",cal:130,p:18,c:6,f:3,cat:"gym",icon:"🧀"},
+          ];
+
+          const today=new Date().toISOString().slice(0,10);
+          const todayLog=nutLog.filter(e=>e.date===today);
+          const todayCal=todayLog.reduce((s,e)=>s+e.cal,0);
+          const todayP=todayLog.reduce((s,e)=>s+e.p,0);
+          const todayC=todayLog.reduce((s,e)=>s+e.c,0);
+          const todayF=todayLog.reduce((s,e)=>s+e.f,0);
+
+          const GOAL_MODES={
+            bulk:{label:"Tăng cân",color:"#f97316",icon:"📈",desc:"Surplus calo"},
+            cut:{label:"Giảm cân",color:"#22c55e",icon:"📉",desc:"Deficit calo"},
+            maintain:{label:"Giữ cân",color:"#60a5fa",icon:"⚖️",desc:"Cân bằng"},
+          };
+          const gm=GOAL_MODES[nutGoal.mode]||GOAL_MODES.maintain;
+          const calPct=Math.min(todayCal/nutGoal.cal*100,110);
+          const calStatus=calPct<85?"under":calPct>105?"over":"on-track";
+
+          // Charts data
+          const last14=[];
+          for(let i=13;i>=0;i--){
+            const d=new Date(); d.setDate(d.getDate()-i);
+            const ds=d.toISOString().slice(0,10);
+            const log=nutLog.filter(e=>e.date===ds);
+            last14.push({
+              date:ds.slice(5),
+              cal:log.reduce((s,e)=>s+e.cal,0),
+              protein:log.reduce((s,e)=>s+e.p,0),
+              target:nutGoal.cal,
+            });
+          }
+
+          const CATS=[
+            {id:"all",label:"Tất cả",icon:"🍽️"},
+            {id:"vn",label:"Việt Nam",icon:"🇻🇳"},
+            {id:"gym",label:"Gym",icon:"💪"},
+            {id:"intl",label:"Quốc tế",icon:"🌍"},
+            {id:"healthy",label:"Healthy",icon:"🥗"},
+          ];
+
+          const filteredFoods=FOODS.filter(f=>{
+            if(nutCat!=="all"&&f.cat!==nutCat) return false;
+            if(nutSearch&&!f.n.toLowerCase().includes(nutSearch.toLowerCase())) return false;
+            return true;
+          }).slice(0,80);
+
+          const addFood=(food,qty=1)=>{
+            const entry={id:`e${Date.now()}`,foodId:food.id,name:food.n,
+              cal:Math.round(food.cal*qty),p:Math.round(food.p*qty),
+              c:Math.round(food.c*qty),f:Math.round(food.f*qty),
+              date:today,time:new Date().toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"}),
+              icon:food.icon,qty};
+            saveNutLog([entry,...nutLog]);
+          };
+
+          const removeEntry=id=>saveNutLog(nutLog.filter(e=>e.id!==id));
+
+          const addWeight=()=>{
+            const w=parseFloat(nutWInput);
+            if(!w||w<30||w>300) return;
+            const entry={date:today,weight:w,ts:Date.now()};
+            saveNutWeights([...nutWeights.filter(e=>e.date!==today),entry].sort((a,b)=>a.ts-b.ts));
+            setNutWInput("");
+          };
+
+          // Weight chart data
+          const weightData=nutWeights.slice(-14).map(e=>({date:e.date.slice(5),weight:e.weight}));
+
+          const macroData=[
+            {name:"Protein",value:todayP,color:"#f97316",target:nutGoal.protein},
+            {name:"Carbs",value:todayC,color:"#60a5fa",target:nutGoal.carb},
+            {name:"Fat",value:todayF,color:"#a78bfa",target:nutGoal.fat},
+          ];
+
+          return(
+            <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:isMobile?"10px 12px 80px":"14px 20px 40px",boxSizing:"border-box"}}>
+
+              {/* Header + goal mode */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <div>
+                  <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,letterSpacing:"2px",margin:"0 0 2px"}}>🍽️ NUTRITION TRACKER</p>
+                  <p style={{fontSize:13,fontWeight:700,color:gm.color,margin:0}}>{gm.icon} {gm.label} — {gm.desc}</p>
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  {Object.entries(GOAL_MODES).map(([k,g])=>(
+                    <button key={k} onClick={()=>saveNutGoal({...nutGoal,mode:k})}
+                      style={{padding:"4px 10px",borderRadius:20,background:nutGoal.mode===k?`${g.color}20`:"transparent",border:`1px solid ${nutGoal.mode===k?g.color:C.bd}`,color:nutGoal.mode===k?g.color:C.mu,fontFamily:FM,fontSize:"8px",cursor:"pointer"}}>
+                      {g.icon} {g.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Today summary */}
+              <div style={{background:C.s1,border:`1px solid ${calStatus==="on-track"?"#22c55e40":calStatus==="over"?"#ef444440":C.bd}`,borderRadius:12,padding:"14px 16px",marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                  <div>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:"0 0 2px"}}>HÔM NAY</p>
+                    <p style={{fontFamily:FM,fontSize:28,fontWeight:900,color:calStatus==="on-track"?"#22c55e":calStatus==="over"?"#ef4444":"#f5c842",margin:0}}>
+                      {todayCal.toLocaleString()}<span style={{fontSize:12,fontWeight:400}}> / {nutGoal.cal.toLocaleString()} cal</span>
+                    </p>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:"2px 0 0"}}>
+                      {calStatus==="on-track"?"✅ Đang đúng mục tiêu":calStatus==="over"?"⚠️ Vượt mức calo":"📊 Còn thiếu "+(nutGoal.cal-todayCal)+" cal"}
+                    </p>
+                  </div>
+                  <button onClick={()=>setNutView(v=>v==="log"?"charts":"log")}
+                    style={{padding:"6px 14px",borderRadius:8,background:"transparent",border:`1px solid ${C.bd}`,color:C.mu,fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>
+                    {nutView==="log"?"📊 Charts":"📋 Log"}
+                  </button>
+                </div>
+
+                {/* Cal progress bar */}
+                <div style={{height:8,background:"rgba(255,255,255,0.07)",borderRadius:4,marginBottom:10,position:"relative"}}>
+                  <div style={{width:Math.min(calPct,100)+"%",height:"100%",background:calStatus==="on-track"?"linear-gradient(90deg,#22c55e,#86efac)":calStatus==="over"?"linear-gradient(90deg,#ef4444,#fca5a5)":"linear-gradient(90deg,#f5c842,#fde68a)",borderRadius:4,transition:"width .5s"}}/>
+                  {/* Target line */}
+                  <div style={{position:"absolute",top:-2,left:"100%",transform:"translateX(-50%)",width:2,height:12,background:"rgba(255,255,255,0.3)",borderRadius:1}}/>
+                </div>
+
+                {/* Macro bars */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+                  {macroData.map(m=>(
+                    <div key={m.name}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                        <span style={{fontFamily:FM,fontSize:"8px",color:m.color,fontWeight:700}}>{m.name}</span>
+                        <span style={{fontFamily:FM,fontSize:"8px",color:C.mu}}>{m.value}g</span>
+                      </div>
+                      <div style={{height:4,background:"rgba(255,255,255,0.07)",borderRadius:2}}>
+                        <div style={{width:Math.min(m.value/m.target*100,100)+"%",height:"100%",background:m.color,borderRadius:2,transition:"width .3s"}}/>
+                      </div>
+                      <p style={{fontFamily:FM,fontSize:"7px",color:C.mu,margin:"2px 0 0",textAlign:"right"}}>/{m.target}g</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* View: Log hoặc Charts */}
+              {nutView==="charts"?(
+                <div style={{marginBottom:12}}>
+                  {/* Calo 14 ngày */}
+                  <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"14px",marginBottom:10}}>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,letterSpacing:"2px",margin:"0 0 12px"}}>📊 CALO 14 NGÀY</p>
+                    <div style={{overflowX:"auto"}}>
+                      <div style={{display:"flex",gap:4,alignItems:"flex-end",height:100,minWidth:400}}>
+                        {last14.map((d,i)=>{
+                          const pct=d.cal>0?Math.min(d.cal/nutGoal.cal,1.1):0;
+                          const isToday=i===13;
+                          const over=d.cal>nutGoal.cal*1.05;
+                          const color=over?"#ef4444":isToday?"#f5c842":"#22c55e";
+                          return(
+                            <div key={d.date} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                              <p style={{fontFamily:FM,fontSize:"7px",color:C.mu,margin:0}}>{d.cal>0?d.cal:""}</p>
+                              <div style={{width:"100%",height:Math.max(pct*80,d.cal>0?4:0),background:color,borderRadius:"3px 3px 0 0",opacity:isToday?1:0.7,transition:"height .3s"}}/>
+                              <div style={{width:"100%",height:2,background:nutGoal.cal>0?"#ffffff20":"transparent",borderRadius:1}}/>
+                              <p style={{fontFamily:FM,fontSize:"6px",color:isToday?"#f5c842":C.mu,margin:0,transform:"rotate(-45deg)",transformOrigin:"center",whiteSpace:"nowrap"}}>{d.date}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:12,marginTop:8}}>
+                      {[["🟢","Đúng mục tiêu"],["🔴","Vượt calo"],["⭐","Hôm nay"]].map(([icon,label])=>(
+                        <span key={label} style={{fontFamily:FM,fontSize:"8px",color:C.mu}}>{icon} {label}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Macro hôm nay */}
+                  <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"14px",marginBottom:10}}>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,letterSpacing:"2px",margin:"0 0 12px"}}>🥧 MACRO HÔM NAY</p>
+                    {todayCal===0?(
+                      <p style={{textAlign:"center",color:C.mu,fontSize:12,padding:"20px 0"}}>Chưa có dữ liệu hôm nay</p>
+                    ):(
+                      <div>
+                        <div style={{display:"flex",gap:6,justifyContent:"center",marginBottom:12}}>
+                          {macroData.map(m=>{
+                            const total=todayP+todayC+todayF||1;
+                            const pct=Math.round(m.value/total*100);
+                            const calFromMacro=m.name==="Protein"?m.value*4:m.name==="Carbs"?m.value*4:m.value*9;
+                            return(
+                              <div key={m.name} style={{flex:1,background:`${m.color}12`,border:`1px solid ${m.color}30`,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
+                                <p style={{fontFamily:FM,fontSize:16,fontWeight:900,color:m.color,margin:"0 0 2px"}}>{m.value}g</p>
+                                <p style={{fontFamily:FM,fontSize:"8px",color:m.color,margin:"0 0 2px"}}>{m.name}</p>
+                                <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:0}}>{pct}% · {calFromMacro}cal</p>
+                                <div style={{height:3,background:"rgba(255,255,255,0.1)",borderRadius:2,marginTop:6}}>
+                                  <div style={{width:Math.min(m.value/m.target*100,100)+"%",height:"100%",background:m.color,borderRadius:2}}/>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* Pie chart visual */}
+                        <div style={{display:"flex",alignItems:"center",gap:12}}>
+                          <div style={{position:"relative",width:80,height:80,flexShrink:0}}>
+                            {(()=>{
+                              const total=(todayP+todayC+todayF)||1;
+                              const segs=[
+                                {v:todayP/total,c:"#f97316"},
+                                {v:todayC/total,c:"#60a5fa"},
+                                {v:todayF/total,c:"#a78bfa"},
+                              ];
+                              let offset=0;
+                              const r=35,cx=40,cy=40,circ=2*Math.PI*r;
+                              return(
+                                <svg width="80" height="80" viewBox="0 0 80 80">
+                                  {segs.map((s,i)=>{
+                                    const dash=s.v*circ;
+                                    const el=<circle key={i} cx={cx} cy={cy} r={r}
+                                      fill="none" stroke={s.c} strokeWidth="14"
+                                      strokeDasharray={`${dash} ${circ-dash}`}
+                                      strokeDashoffset={-offset*circ}
+                                      transform="rotate(-90 40 40)"/>;
+                                    offset+=s.v;
+                                    return el;
+                                  })}
+                                  <text x="40" y="44" textAnchor="middle" fontSize="9" fill="#fff" fontWeight="700">{todayCal}</text>
+                                  <text x="40" y="54" textAnchor="middle" fontSize="6" fill="#888">cal</text>
+                                </svg>
+                              );
+                            })()}
+                          </div>
+                          <div style={{flex:1}}>
+                            {macroData.map(m=>(
+                              <div key={m.name} style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                                <span style={{display:"flex",alignItems:"center",gap:5}}>
+                                  <span style={{width:8,height:8,borderRadius:2,background:m.color,display:"inline-block"}}/>
+                                  <span style={{fontFamily:FM,fontSize:"9px",color:C.txt}}>{m.name}</span>
+                                </span>
+                                <span style={{fontFamily:FM,fontSize:"9px",color:m.color,fontWeight:700}}>{m.value}g / {m.target}g</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Cân nặng */}
+                  <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"14px"}}>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,letterSpacing:"2px",margin:"0 0 10px"}}>⚖️ CÂN NẶNG</p>
+                    <div style={{display:"flex",gap:6,marginBottom:10}}>
+                      <input type="number" placeholder="Cân nặng hôm nay (kg)" value={nutWInput} onChange={e=>setNutWInput(e.target.value)}
+                        style={{flex:1,background:"#111",border:`1px solid ${C.bd}`,borderRadius:6,color:"#fff",padding:"7px 10px",fontSize:12}}/>
+                      <button onClick={addWeight}
+                        style={{padding:"7px 14px",borderRadius:6,background:"#60a5fa20",border:"1px solid #60a5fa40",color:"#60a5fa",fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>
+                        Lưu
+                      </button>
+                    </div>
+                    {weightData.length>0?(
+                      <div style={{overflowX:"auto"}}>
+                        <div style={{display:"flex",gap:4,alignItems:"flex-end",height:80,minWidth:Math.max(weightData.length*28,200)}}>
+                          {(()=>{
+                            const mn=Math.min(...weightData.map(d=>d.weight))-1;
+                            const mx=Math.max(...weightData.map(d=>d.weight))+1;
+                            return weightData.map((d,i)=>{
+                              const pct=(d.weight-mn)/(mx-mn||1);
+                              const isLast=i===weightData.length-1;
+                              return(
+                                <div key={d.date} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,minWidth:24}}>
+                                  <p style={{fontFamily:FM,fontSize:"7px",color:isLast?"#60a5fa":C.mu,margin:0}}>{d.weight}</p>
+                                  <div style={{width:"60%",height:Math.max(pct*60,4),background:isLast?"#60a5fa":"#60a5fa80",borderRadius:"3px 3px 0 0"}}/>
+                                  <p style={{fontFamily:FM,fontSize:"6px",color:C.mu,margin:0,whiteSpace:"nowrap"}}>{d.date}</p>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                        {weightData.length>=2&&(
+                          <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,marginTop:6,textAlign:"center"}}>
+                            {(()=>{
+                              const diff=weightData[weightData.length-1].weight-weightData[0].weight;
+                              return diff>0?`📈 Tăng ${diff.toFixed(1)}kg`:diff<0?`📉 Giảm ${Math.abs(diff).toFixed(1)}kg`:"⚖️ Không đổi";
+                            })()}
+                          </p>
+                        )}
+                      </div>
+                    ):(
+                      <p style={{textAlign:"center",color:C.mu,fontSize:11,padding:"12px 0"}}>Nhập cân nặng hàng ngày để theo dõi</p>
+                    )}
+                  </div>
+                </div>
+              ):(
+                /* LOG VIEW */
+                <div style={{marginBottom:12}}>
+                  {/* Today food log */}
+                  {todayLog.length>0&&(
+                    <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"12px 14px",marginBottom:10}}>
+                      <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,letterSpacing:"2px",margin:"0 0 8px"}}>📋 ĐÃ ĂN HÔM NAY</p>
+                      {todayLog.map(e=>(
+                        <div key={e.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.bd}`}}>
+                          <span style={{fontSize:16,flexShrink:0}}>{e.icon}</span>
+                          <div style={{flex:1,minWidth:0}}>
+                            <p style={{fontSize:12,color:C.txt,margin:"0 0 1px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.name}</p>
+                            <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:0}}>{e.time} · P:{e.p}g C:{e.c}g F:{e.f}g</p>
+                          </div>
+                          <span style={{fontFamily:FM,fontSize:11,fontWeight:700,color:"#f5c842",flexShrink:0}}>{e.cal}cal</span>
+                          <button onClick={()=>removeEntry(e.id)}
+                            style={{width:20,height:20,borderRadius:4,background:"transparent",border:"none",color:"#ef444480",cursor:"pointer",fontSize:12,padding:0,flexShrink:0}}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Food search + add */}
+                  <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"12px 14px"}}>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,letterSpacing:"2px",margin:"0 0 10px"}}>🔍 THÊM THỨC ĂN ({FOODS.length} món)</p>
+                    <input value={nutSearch} onChange={e=>setNutSearch(e.target.value)} placeholder="Tìm món ăn..."
+                      style={{width:"100%",background:"#111",border:`1px solid ${C.bd}`,borderRadius:8,color:"#fff",padding:"8px 12px",fontSize:12,boxSizing:"border-box",marginBottom:8}}/>
+                    {/* Category filter */}
+                    <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
+                      {CATS.map(cat=>(
+                        <button key={cat.id} onClick={()=>setNutCat(cat.id)}
+                          style={{padding:"3px 10px",borderRadius:12,background:nutCat===cat.id?"rgba(255,255,255,0.12)":"transparent",border:`1px solid ${nutCat===cat.id?"rgba(255,255,255,0.3)":C.bd}`,color:nutCat===cat.id?"#fff":C.mu,fontFamily:FM,fontSize:"8px",cursor:"pointer"}}>
+                          {cat.icon} {cat.label}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Food list */}
+                    <div style={{maxHeight:320,overflowY:"auto"}}>
+                      {filteredFoods.map(food=>(
+                        <div key={food.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 4px",borderBottom:`1px solid ${C.bd}`}}>
+                          <span style={{fontSize:15,flexShrink:0}}>{food.icon}</span>
+                          <div style={{flex:1,minWidth:0}}>
+                            <p style={{fontSize:12,color:C.txt,margin:"0 0 1px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{food.n}</p>
+                            <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:0}}>
+                              <span style={{color:"#f5c842"}}>{food.cal}cal</span>
+                              {" · "}P:{food.p}g C:{food.c}g F:{food.f}g
+                            </p>
+                          </div>
+                          <button onClick={()=>addFood(food)}
+                            style={{width:26,height:26,borderRadius:6,background:"#22c55e18",border:"1px solid #22c55e40",color:"#22c55e",fontSize:14,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                            +
+                          </button>
+                        </div>
+                      ))}
+                      {filteredFoods.length===0&&(
+                        <p style={{textAlign:"center",color:C.mu,fontSize:11,padding:"20px 0"}}>Không tìm thấy món "{nutSearch}"</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Goal settings */}
+              <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"12px 14px"}}>
+                <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,letterSpacing:"2px",margin:"0 0 10px"}}>⚙️ CÀI MỤC TIÊU</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  {[
+                    ["Calo mục tiêu",nutGoal.cal,"cal","cal",1200,5000,100],
+                    ["Protein",nutGoal.protein,"g","protein",50,400,5],
+                    ["Carb",nutGoal.carb,"g","carb",50,600,10],
+                    ["Fat",nutGoal.fat,"g","fat",20,200,5],
+                    ["Cân nặng mục tiêu",nutGoal.weight,"kg","weight",30,200,0.5],
+                  ].map(([label,val,unit,key,min,max,step])=>(
+                    <div key={key}>
+                      <p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"0 0 4px"}}>{label}</p>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <input type="number" value={val} min={min} max={max} step={step}
+                          onChange={e=>saveNutGoal({...nutGoal,[key]:Number(e.target.value)})}
+                          style={{flex:1,background:"#111",border:`1px solid ${C.bd}`,borderRadius:6,color:"#fff",padding:"5px 8px",fontSize:12}}/>
+                        <span style={{fontFamily:FM,fontSize:"9px",color:C.mu}}>{unit}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
             </div>
           );
