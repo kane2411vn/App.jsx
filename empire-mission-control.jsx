@@ -186,14 +186,18 @@ const SETUP = [
   {id:"s13",ph:4,tc:C.gold,tag:"REVIEW",time:"Q4",title:"Review Năm 1 — Điều chỉnh Roadmap",why:"Data beats assumptions.",fix:"Không đạt target: quan trọng là hiểu WHY.",check:"Đã review tất cả 4 quý, roadmap 2027 đã cập nhật",items:[{t:"do",v:"Review từng quý, đánh dấu achieved/missed"},{t:"do",v:"Celebrate progress — dù nhỏ."}]},
 ];
 
-// ─── 5-YEAR ROADMAP ──────────────────────────────────────────────────────────
-const YEARS = [
-  {y:1,period:"2026",theme:"Người Xây Móng",col:C.blu,icon:"🔧",identity:"Junior AI Builder",mantra:"Mỗi ngày một brick. Consistency beats talent.",pct:30,income:"$0 → $500/tháng",metric:"51 agents · 500 queries/ngày",status:"🟡 Đang xây — BẠN ĐANG Ở ĐÂY",feasibility:85,feasNote:"Cao — công nghệ đã sẵn, roadmap rõ, chỉ cần consistency.",owns:["51 agents hoạt động với prompt đầy đủ","Council Mode: hỏi 1 → 4-8 agents trả lời song song","RAG với 100+ tài liệu được index","Daily briefing tự động 7h sáng qua Telegram bot","Chat UI mobile-friendly chạy ổn định","Chi phí vận hành < $30/tháng"],skills:["TypeScript","Cloudflare Workers","Prompt Engineering","RAG Pipeline","API Design"],quarters:[{q:"Q1",t:"Foundation",items:["Đọc 3 cuốn cốt lõi","Deploy Empire Council production","Hoàn thành Setup 13 bước","Thiết lập routine sáng"]},{q:"Q2",t:"Kỹ Năng Kỹ Thuật",items:["Master TypeScript, async/await, REST API","Build RAG pipeline với 50+ tài liệu","Integrate Telegram bot","Biết đọc và debug AI API responses"]},{q:"Q3",t:"Hệ Thống Cá Nhân",items:["PKM kết nối với Council","Tiếng Anh: nghe hiểu 80% podcast business","Tiếng Trung: HSK2","Bắt đầu monetize: 1-2 freelance AI setup"]},{q:"Q4",t:"Portfolio Đầu Tiên",items:["1 case study thực tế","Viết 10 bài về AI builder journey","Network với 10-20 người","Review năm: điều chỉnh roadmap"]}]},
-  {y:2,period:"2027",theme:"Người Bán Trí Tuệ",col:C.grn,icon:"⚡",identity:"AI Systems Consultant",mantra:"Bán giải pháp, không bán thời gian.",pct:55,income:"$0 → $5,000/tháng",metric:"5-10 paying clients · white-label ready",status:"🟢 Consulting Mode",feasibility:72,feasNote:"Khá cao — nếu Năm 1 build xong. Risk: tìm clients thật trả tiền.",owns:["White-label: deploy Council cho client","Multi-user architecture","Workflow engine: sequences tự động","MCP Server: gọi Council từ Claude Code","Analytics dashboard","Template library cho các ngành"],skills:["SaaS Architecture","Multi-tenant","Sales System","Technical Writing","Team Lead"],quarters:[{q:"Q1",t:"Clients Đầu Tiên",items:["Setup Council cho 3 khách hàng — miễn phí","Document mọi setup step","Học: multi-tenant architecture","Build case study với số liệu"]},{q:"Q2",t:"Monetize Đầu Tiên",items:["$300-500/setup + $50-100/tháng","5 paying clients → $250-500 MRR","Tự động hóa onboarding","Referral hệ thống"]},{q:"Q3",t:"Scale Operations",items:["Revenue $2,000-3,000/tháng","Thuê 1 junior dev part-time","Tiếng Anh: confident business calls","Tiếng Trung: HSK3"]},{q:"Q4",t:"Product Thinking",items:["Productized service với fixed pricing","Landing page + checkout tự động","Revenue $4,000-5,000/tháng","Quyết định: lifestyle vs SaaS?"]}]},
-  {y:3,period:"2028",theme:"Người Xây Sản Phẩm",col:C.pur,icon:"🚀",identity:"AI Product Builder",mantra:"Sản phẩm tốt là nhân viên không bao giờ nghỉ.",pct:75,income:"$20,000–30,000 MRR",metric:"500+ active users · $20K MRR",status:"🚀 SaaS Product",feasibility:55,feasNote:"Trung bình — cần product-market fit thực sự.",owns:["SaaS platform: self-service signup, billing","Custom knowledge base","Public API","Mobile app React Native","Voice interface","Autonomous Council"],skills:["Product Management","Growth Hacking","Community Building","Fundraising Basics","Team Management"],quarters:[{q:"Q1",t:"Launch SaaS v1",items:["$49/tháng Basic · $149/tháng Pro","100 beta users, churn < 15%","SEO + content: 10 bài/tháng"]},{q:"Q2",t:"Growth Engine",items:["Product Hunt launch","Integration: Notion, Google Workspace","Affiliate 20% recurring","MRR $10,000"]},{q:"Q3",t:"Niche Domination",items:["Focus 1 niche: Vietnam SME","Discord community: 1,000 members","Workshop/course $200-500/người"]},{q:"Q4",t:"Team & Delegation",items:["Team 3-5 người","MRR $20,000-30,000","Quyết định: raise seed hay bootstrapped?"]}]},
-  {y:4,period:"2029",theme:"Người Có Tầm Ảnh Hưởng",col:C.gold,icon:"👑",identity:"AI Thought Leader",mantra:"Influence nhân rộng impact.",pct:88,income:"$50,000–70,000 MRR + investments",metric:"2,000+ users · 3 countries",status:"🌐 Platform Scale",feasibility:40,feasNote:"Khó — phụ thuộc nhiều vào execution Năm 3.",owns:["Enterprise tier","Multi-language: Vietnamese, English, Thai","Agent Marketplace","Council OS framework","Real-time collaboration","Predictive Council"],skills:["Public Speaking","Angel Investing","Executive Leadership","Global Expansion","Brand Authority"],quarters:[{q:"Q1",t:"Authority Building",items:["Book: 'Hội Đồng AI — 51 Cố Vấn Thiên Tài'","Podcast/YouTube: 50+ episodes","Speaking tại Techfest Vietnam"]},{q:"Q2",t:"Ecosystem Builder",items:["Open-source core engine","Partner với universities","Council Certification Program"]},{q:"Q3",t:"Đầu Tư & Scale",items:["Angel invest 3-5 AI startups","MRR $50,000-70,000","Expand sang Singapore, Thailand"]},{q:"Q4",t:"Legacy Foundation",items:["Empire Council Foundation","Team 15-20 người","Bạn là chairman"]}]},
-  {y:5,period:"2030",theme:"Người Vận Hành Đế Chế",col:C.org,icon:"🏛️",identity:"Empire Architect",mantra:"Đế chế thật sự là khi nó chạy mà không cần bạn.",pct:97,income:"$100,000+/tháng · Time Freedom",metric:"1M+ users · industry standard",status:"🏛️ Autonomous",feasibility:30,feasNote:"Tham vọng nhưng không impossible.",owns:["Fully autonomous operations","AGI-ready architecture","1M+ queries/ngày","Council Network: 100+ communities","Physical presence: AI advisory pods","Open Protocol: industry standard"],skills:["Vision Setting","Capital Allocation","Legacy Design","Systems Thinking","Philosophy"],quarters:[{q:"Q1–Q2",t:"Full Autonomy",items:["Company vận hành không cần daily tasks","Revenue $100,000+/tháng","Test: biến mất 2 tháng, business vẫn grow"]},{q:"Q3–Q4",t:"Đế Chế Tiếp Theo",items:["Venture fund Empire AI Capital","Council 2.0: physical + digital centers","Câu hỏi: 'Tôi muốn xây gì tiếp theo?'"]}]},
+// ─── 5-YEAR ROADMAP (default empty — user customizes) ────────────────────────
+const DEFAULT_YEARS = [
+  {y:1,period:"Năm 1",theme:"",col:C.blu,icon:"🔧",identity:"",mantra:"",pct:0,income:"",metric:"",status:"",feasibility:0,feasNote:"",owns:[],skills:[],quarters:[]},
+  {y:2,period:"Năm 2",theme:"",col:C.grn,icon:"⚡",identity:"",mantra:"",pct:0,income:"",metric:"",status:"",feasibility:0,feasNote:"",owns:[],skills:[],quarters:[]},
+  {y:3,period:"Năm 3",theme:"",col:C.pur,icon:"🚀",identity:"",mantra:"",pct:0,income:"",metric:"",status:"",feasibility:0,feasNote:"",owns:[],skills:[],quarters:[]},
+  {y:4,period:"Năm 4",theme:"",col:C.gold,icon:"👑",identity:"",mantra:"",pct:0,income:"",metric:"",status:"",feasibility:0,feasNote:"",owns:[],skills:[],quarters:[]},
+  {y:5,period:"Năm 5",theme:"",col:C.org,icon:"🏛️",identity:"",mantra:"",pct:0,income:"",metric:"",status:"",feasibility:0,feasNote:"",owns:[],skills:[],quarters:[]},
 ];
+const YEARS_KEY = "empire_years_v2";
+const loadYears = () => { try { const s=localStorage.getItem(YEARS_KEY); return s?JSON.parse(s):DEFAULT_YEARS; } catch { return DEFAULT_YEARS; } };
+const saveYearsLS = (y) => { try { localStorage.setItem(YEARS_KEY, JSON.stringify(y)); } catch {} };
+const YEARS = loadYears();
 
 // ─── PROVIDERS ────────────────────────────────────────────────────────────────
 const PROVIDERS = {
@@ -881,6 +885,10 @@ export default function App() {
   // Roadmap
   const [selYear,setSelYear] = useState(1);
   const [yrView,setYrView]   = useState("owns");
+  const [yrEdit,setYrEdit]   = useState(false);
+  const [yrData,setYrData]   = useState({});
+  const [yearsData,setYearsData] = useState(()=>loadYears());
+  const saveYears = u=>{setYearsData(u);saveYearsLS(u);};
   const [openStep,setOpenStep] = useState("s1");
   // ── Finance states ──────────────────────────────────────────
   const [finTxs,setFinTxs]     = useState(()=>{try{return JSON.parse(localStorage.getItem("empire_fin_txs")||"[]");}catch{return[];}});
@@ -910,6 +918,11 @@ export default function App() {
   const saveJarBalances = u=>{setJarBalances(u);try{localStorage.setItem("empire_jar_balances",JSON.stringify(u));}catch{}};
   const saveFinTxs = u=>{setFinTxs(u);try{localStorage.setItem("empire_fin_txs",JSON.stringify(u));}catch{}};
   const saveFinDebts = u=>{setFinDebts(u);try{localStorage.setItem("empire_fin_debts",JSON.stringify(u));}catch{}};
+  const [debtForm,setDebtForm]   = useState({show:false,n:"",total:"",paid:"",col:"#ef4444",note:""});
+  // ── Finance Roadmap (custom milestones) ───────────────────────
+  const [finMilestones,setFinMilestones] = useState(()=>{try{return JSON.parse(localStorage.getItem("empire_fin_milestones")||"[]");}catch{return[];}});
+  const [milForm,setMilForm]     = useState({show:false,title:"",sub:"",col:"#60a5fa",done:false});
+  const saveFinMilestones = u=>{setFinMilestones(u);try{localStorage.setItem("empire_fin_milestones",JSON.stringify(u));}catch{}};
   // ── Goal / OKR states ──────────────────────────────────────
   const [okrs,setOkrs]         = useState(()=>{try{return JSON.parse(localStorage.getItem("empire_okrs")||"[]");}catch{return[];}});
   const [okrForm,setOkrForm]   = useState({show:false,obj:"",krs:[""]});
@@ -1189,7 +1202,7 @@ export default function App() {
     setPatternBusy(true);setPatternRes("");
     try {
       const memSample=mems.slice(-50).map(m=>`[${m.tag}] ${m.text.slice(0,100)}`).join("\n");
-      const decSample=decisions.slice(-20).map(d=>`[${d.status}] ${d.title}: ${d.context.slice(0,80)}`).join("\n");
+      const decSample=decisions.slice(-20).map(d=>`[${d.status}] ${d.title}: ${d.context.slice(0,100)}`).join("\n");
       const sys="Bạn là chuyên gia phân tích hành vi và tư duy. Phân tích ngắn gọn, sắc bén. Tiếng Việt.";
       const prompt=`Phân tích ${mems.length} memories và ${decisions.length} decisions:\n\nMEMORIES:\n${memSample}\n\nDECISIONS:\n${decSample}\n\nChỉ ra:\n1. BLIND SPOTS — 2-3 điểm mù\n2. PATTERNS — 2-3 pattern lặp lại\n3. STRENGTHS — 2 điểm mạnh\n4. ACTION — 1 hành động ngay`;
       const prov=apiKeys.openrouter?"openrouter":"claude";
@@ -1367,7 +1380,7 @@ export default function App() {
   };
   const dayStr=["CN","T2","T3","T4","T5","T6","T7"][new Date().getDay()];
   const dateStr=new Date().toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric"});
-  const yr=YEARS.find(y=>y.y===selYear);
+  const yrList=yearsData||YEARS; const yr=yrList.find(y=>y.y===selYear)||yrList[0];
   const TABS=[
     {id:"council",label:"🏛️ Council",badge:`${panel.length}/${AGENTS.length}`,color:C.gold},
     {id:"chat",label:"💬 Chat",badge:activeAg.n,color:activeAg.col},
@@ -2525,10 +2538,10 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
         )}
 
         {/* ════ ROADMAP ════ */}
-        {tab==="roadmap"&&yr&&(
+        {tab==="roadmap"&&(
           <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:"14px 20px 40px",boxSizing:"border-box"}}>
             <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-              {YEARS.map(y=>{const sel=selYear===y.y;return(
+              {yrList.map(y=>{const sel=selYear===y.y;return(
                 <button key={y.y} onClick={()=>{setSelYear(y.y);setYrView("owns");}} style={{flex:1,minWidth:110,padding:"12px 10px",textAlign:"center",background:sel?`${y.col}14`:C.s1,border:`1px solid ${sel?y.col:C.bd}`,borderRadius:9,cursor:"pointer",transition:"all .15s",boxShadow:sel?`0 0 14px ${y.col}18`:"none"}}>
                   <p style={{fontSize:18,margin:"0 0 4px"}}>{y.icon}</p>
                   <p style={{fontFamily:FM,fontSize:"8px",color:sel?y.col:C.mu,margin:"0 0 2px",letterSpacing:"1px"}}>{y.period}</p>
@@ -2538,10 +2551,41 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
               );})}
             </div>
             <div style={{background:`${yr.col}09`,border:`1px solid ${yr.col}25`,borderRadius:10,padding:"16px 18px",marginBottom:14}}>
-              <p style={{fontFamily:FM,fontSize:"8px",color:yr.col,margin:"0 0 4px",letterSpacing:"2px",textTransform:"uppercase"}}>BẠN LÀ AI TRONG NĂM NÀY</p>
-              <p style={{fontSize:19,fontWeight:800,color:"#fff",margin:"0 0 6px"}}>{yr.icon} {yr.identity}</p>
-              <p style={{fontSize:13,color:C.mu,margin:"0 0 10px",lineHeight:1.6,fontStyle:"italic"}}>"{yr.mantra}"</p>
-              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>{yr.skills.map(s=><span key={s} style={{fontFamily:FM,fontSize:"9px",color:yr.col,background:`${yr.col}14`,border:`1px solid ${yr.col}28`,padding:"2px 9px",borderRadius:3}}>{s}</span>)}</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                <p style={{fontFamily:FM,fontSize:"8px",color:yr.col,margin:0,letterSpacing:"2px",textTransform:"uppercase"}}>{yr.period} · {yr.theme||"Chưa đặt tên"}</p>
+                <button onClick={()=>{setYrEdit(true);setYrData({...yr,ownsText:(yr.owns||[]).join("\n"),skillsText:(yr.skills||[]).join(", ")});}}
+                  style={{padding:"3px 10px",borderRadius:6,background:`${yr.col}15`,border:`1px solid ${yr.col}30`,color:yr.col,fontFamily:FM,fontSize:"8px",cursor:"pointer",flexShrink:0}}>
+                  ✏️ Sửa
+                </button>
+              </div>
+              <p style={{fontSize:19,fontWeight:800,color:"#fff",margin:"0 0 6px"}}>{yr.icon} {yr.identity||"Chưa có identity"}</p>
+              <p style={{fontSize:13,color:C.mu,margin:"0 0 10px",lineHeight:1.6,fontStyle:"italic"}}>"{yr.mantra||"Nhập mantra của bạn..."}"</p>
+              {yrEdit&&(<div style={{background:"rgba(0,0,0,0.5)",border:`1px solid ${yr.col}40`,borderRadius:10,padding:"12px",marginBottom:12}}>
+                <p style={{fontFamily:FM,fontSize:"9px",color:yr.col,margin:"0 0 8px"}}>✏️ CHỈNH SỬA NĂM {yr.y}</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
+                  {[["period","Năm/Giai đoạn"],["icon","Icon"],["theme","Chủ đề"],["identity","Identity"],["income","Thu nhập mục tiêu"],["metric","Metric chính"],["status","Trạng thái"]].map(([k,ph])=>(
+                    <input key={k} value={yrData[k]||""} onChange={e=>setYrData(p=>({...p,[k]:e.target.value}))} placeholder={ph}
+                      style={{background:"#111",border:"1px solid #333",borderRadius:5,color:"#fff",padding:"5px 8px",fontSize:10}}/>
+                  ))}
+                  <input type="number" value={yrData.pct||0} onChange={e=>setYrData(p=>({...p,pct:Number(e.target.value)}))} placeholder="% tự động hoá"
+                    style={{background:"#111",border:"1px solid #333",borderRadius:5,color:"#fff",padding:"5px 8px",fontSize:10}}/>
+                </div>
+                {[["mantra","Mantra/Châm ngôn",2],["ownsText","Sở hữu (mỗi dòng 1 mục)",4],["skillsText","Skills (phân cách dấu phẩy)",2],["feasNote","Ghi chú khả thi",2]].map(([k,ph,rows])=>(
+                  <div key={k} style={{marginBottom:6}}>
+                    <p style={{fontFamily:FM,fontSize:"7px",color:"#888",margin:"0 0 2px"}}>{ph}</p>
+                    <textarea value={yrData[k]||""} onChange={e=>setYrData(p=>({...p,[k]:e.target.value}))} rows={rows} placeholder={ph}
+                      style={{width:"100%",background:"#111",border:"1px solid #333",borderRadius:5,color:"#fff",padding:"5px 8px",fontSize:10,resize:"vertical",boxSizing:"border-box"}}/>
+                  </div>
+                ))}
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={()=>{
+                    const u=yearsData.map(y=>y.y===yr.y?{...y,...yrData,owns:(yrData.ownsText||"").split("\n").filter(Boolean),skills:(yrData.skillsText||"").split(",").map(s=>s.trim()).filter(Boolean)}:y);
+                    saveYears(u);setYrEdit(false);
+                  }} style={{flex:1,padding:"7px",borderRadius:6,background:`${yr.col}20`,border:`1px solid ${yr.col}50`,color:yr.col,fontFamily:FM,fontSize:"9px",cursor:"pointer",fontWeight:700}}>✓ Lưu</button>
+                  <button onClick={()=>setYrEdit(false)} style={{padding:"7px 12px",borderRadius:6,background:"transparent",border:"1px solid #333",color:"#888",fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>Hủy</button>
+                </div>
+              </div>)}
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>{(yr.skills||[]).map(s=><span key={s} style={{fontFamily:FM,fontSize:"9px",padding:"3px 8px",borderRadius:10,background:`${yr.col}15`,color:yr.col}}>{s}</span>)}</div>
               <div style={{display:"flex",gap:5,marginBottom:12}}>
                 {[["owns","⚙️ Empire Sở Hữu"],["quarters","📋 Kế Hoạch Quý"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setYrView(v)} style={{padding:"7px 16px",background:yrView===v?`${yr.col}14`:"rgba(255,255,255,0.02)",border:`1px solid ${yrView===v?yr.col:C.bd}`,borderRadius:6,cursor:"pointer",fontFamily:FM,fontSize:"9px",color:yrView===v?yr.col:C.mu,letterSpacing:"1px",textTransform:"uppercase"}}>{l}</button>
@@ -2550,7 +2594,7 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
               {yrView==="owns"&&(
                 <div>
                   <p style={{fontFamily:FM,fontSize:"8px",color:yr.col,margin:"0 0 8px",letterSpacing:"1.5px"}}>EMPIRE SẼ CÓ</p>
-                  {yr.owns.map((item,i)=>(
+                  {(yr.owns||[]).map((item,i)=>(
                     <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:7}}>
                       <div style={{width:5,height:5,borderRadius:"50%",background:yr.col,flexShrink:0,marginTop:6}}/>
                       <p style={{fontSize:12,color:C.txt,margin:0,lineHeight:1.65}}>{item}</p>
@@ -2560,7 +2604,7 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
               )}
               {yrView==="quarters"&&(
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:8}}>
-                  {yr.quarters.map(q=>(
+                  {(yr.quarters||[]).map(q=>(
                     <div key={q.q} style={{background:C.s1,border:`1px solid ${yr.col}20`,borderRadius:9,padding:"14px 15px"}}>
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                         <span style={{fontFamily:FM,fontSize:"9px",color:yr.col,background:`${yr.col}18`,border:`1px solid ${yr.col}30`,padding:"2px 9px",borderRadius:3,letterSpacing:"1px"}}>{q.q}</span>
@@ -2945,7 +2989,58 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
 
             {/* Debt Tracker */}
             <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"12px 14px",marginBottom:14}}>
-              <p style={{fontFamily:FM,fontSize:"9px",color:"#F87171",letterSpacing:"2px",margin:"0 0 10px"}}>💳 TIẾN ĐỘ TRẢ NỢ</p>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <p style={{fontFamily:FM,fontSize:"9px",color:"#F87171",letterSpacing:"2px",margin:0}}>💳 TIẾN ĐỘ TRẢ NỢ</p>
+                <button onClick={()=>setDebtForm({show:true,n:"",total:"",paid:"0",col:"#ef4444",note:""})}
+                  style={{padding:"3px 10px",borderRadius:6,background:"#F8717115",border:"1px solid #F8717140",color:"#F87171",fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>
+                  + Thêm nợ
+                </button>
+              </div>
+
+              {/* Add debt form */}
+              {debtForm.show&&(
+                <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid #F8717130",borderRadius:8,padding:"10px 12px",marginBottom:12}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+                    <input placeholder="Tên khoản nợ (VD: Vay mua xe)" value={debtForm.n}
+                      onChange={e=>setDebtForm(p=>({...p,n:e.target.value}))}
+                      style={{background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"6px 8px",fontSize:11,gridColumn:"1/-1"}}/>
+                    <input type="number" placeholder="Tổng nợ (đ)" value={debtForm.total}
+                      onChange={e=>setDebtForm(p=>({...p,total:e.target.value}))}
+                      style={{background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"6px 8px",fontSize:11}}/>
+                    <input type="number" placeholder="Đã trả (đ)" value={debtForm.paid}
+                      onChange={e=>setDebtForm(p=>({...p,paid:e.target.value}))}
+                      style={{background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"6px 8px",fontSize:11}}/>
+                    <input placeholder="Ghi chú (VD: lãi 1%/tháng)" value={debtForm.note}
+                      onChange={e=>setDebtForm(p=>({...p,note:e.target.value}))}
+                      style={{background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"6px 8px",fontSize:11}}/>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontFamily:FM,fontSize:"8px",color:"#888"}}>Màu</span>
+                      <input type="color" value={debtForm.col} onChange={e=>setDebtForm(p=>({...p,col:e.target.value}))}
+                        style={{width:28,height:24,border:"none",borderRadius:4,cursor:"pointer",background:"transparent"}}/>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>{
+                      if(!debtForm.n||!debtForm.total) return;
+                      const nd={id:"d"+Date.now(),n:debtForm.n,total:Number(debtForm.total),paid:Number(debtForm.paid||0),col:debtForm.col,note:debtForm.note};
+                      saveFinDebts([...finDebts,nd]);
+                      setDebtForm({show:false,n:"",total:"",paid:"",col:"#ef4444",note:""});
+                    }} style={{flex:1,padding:"6px",borderRadius:6,background:"#F8717120",border:"1px solid #F8717150",color:"#F87171",fontFamily:FM,fontSize:"9px",cursor:"pointer",fontWeight:700}}>
+                      ✓ Thêm
+                    </button>
+                    <button onClick={()=>setDebtForm(p=>({...p,show:false}))}
+                      style={{padding:"6px 12px",borderRadius:6,background:"transparent",border:"1px solid #333",color:"#888",fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>
+                      Hủy
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {finDebts.length===0&&!debtForm.show&&(
+                <p style={{textAlign:"center",color:"#666",fontSize:11,padding:"16px 0"}}>
+                  🎉 Không có nợ! Hoặc nhấn "+ Thêm nợ" để theo dõi.
+                </p>
+              )} TRẢ NỢ</p>
               {finDebts.map(d=>{
                 const remain=d.total-d.paid;
                 const pct=Math.round(d.paid/d.total*100);
@@ -2983,26 +3078,76 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
               </div>
             </div>
 
-            {/* Roadmap tự do tài chính */}
+                        {/* Roadmap tự do tài chính - DYNAMIC */}
             <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"12px 14px",marginBottom:14}}>
-              <p style={{fontFamily:FM,fontSize:"9px",color:C.gold,letterSpacing:"2px",margin:"0 0 10px"}}>🎯 ROADMAP TỰ DO TÀI CHÍNH</p>
-              {[
-                {n:1,title:"Trả nợ Mẹ 200,000,000đ",sub:"Ưu tiên số 1 · Đang thực hiện",col:"#ef4444",done:false},
-                {n:2,title:"Hoàn thành GTV SEO",sub:"Deadline 21/05 · Doanh thu ổn định",col:"#f97316",done:false},
-                {n:3,title:"Xây doanh nghiệp AI",sub:"n8n · Julie · Empire Council",col:"#60a5fa",done:false},
-                {n:4,title:"$1,000,000 USD tài sản ròng 🏆",sub:"Tự do tài chính hoàn toàn",col:C.gold,done:false},
-              ].map((s,i)=>(
-                <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start",marginBottom:i<3?12:0}}>
-                  <div style={{width:28,height:28,borderRadius:"50%",background:s.done?"#34D399":i===0?"#ef4444":"rgba(255,255,255,0.05)",border:`2px solid ${s.col}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:FM,fontSize:"10px",fontWeight:700,color:s.done?"#000":s.col}}>{s.n}</div>
-                  <div>
-                    <p style={{fontSize:13,fontWeight:600,color:s.done?C.mu:"#fff",margin:"0 0 2px"}}>{s.title}</p>
-                    <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:0}}>{s.sub}</p>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <p style={{fontFamily:FM,fontSize:"9px",color:C.gold,letterSpacing:"2px",margin:0}}>🎯 ROADMAP TỰ DO TÀI CHÍNH</p>
+                <button onClick={()=>setMilForm({show:true,title:"",sub:"",col:"#60a5fa",done:false})}
+                  style={{padding:"3px 10px",borderRadius:6,background:"#f5c84215",border:"1px solid #f5c84240",color:C.gold,fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>
+                  + Thêm cột mốc
+                </button>
+              </div>
+
+              {/* Add milestone form */}
+              {milForm.show&&(
+                <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid #f5c84230",borderRadius:8,padding:"10px 12px",marginBottom:12}}>
+                  <div style={{display:"grid",gap:6,marginBottom:6}}>
+                    <input placeholder="Cột mốc (VD: Trả hết nợ, 1 tỷ tiết kiệm...)" value={milForm.title}
+                      onChange={e=>setMilForm(p=>({...p,title:e.target.value}))}
+                      style={{background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"6px 8px",fontSize:11}}/>
+                    <input placeholder="Mô tả / timeline (VD: Q4/2025 · Ưu tiên #1)" value={milForm.sub}
+                      onChange={e=>setMilForm(p=>({...p,sub:e.target.value}))}
+                      style={{background:"#111",border:"1px solid #333",borderRadius:6,color:"#fff",padding:"6px 8px",fontSize:11}}/>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontFamily:FM,fontSize:"8px",color:"#888"}}>Màu</span>
+                      <input type="color" value={milForm.col} onChange={e=>setMilForm(p=>({...p,col:e.target.value}))}
+                        style={{width:28,height:24,border:"none",borderRadius:4,cursor:"pointer"}}/>
+                      <label style={{display:"flex",alignItems:"center",gap:4,cursor:"pointer"}}>
+                        <input type="checkbox" checked={milForm.done} onChange={e=>setMilForm(p=>({...p,done:e.target.checked}))}/>
+                        <span style={{fontFamily:FM,fontSize:"8px",color:"#888"}}>Đã hoàn thành</span>
+                      </label>
+                    </div>
                   </div>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>{
+                      if(!milForm.title) return;
+                      const nm={id:"m"+Date.now(),title:milForm.title,sub:milForm.sub,col:milForm.col,done:milForm.done};
+                      saveFinMilestones([...finMilestones,nm]);
+                      setMilForm({show:false,title:"",sub:"",col:"#60a5fa",done:false});
+                    }} style={{flex:1,padding:"6px",borderRadius:6,background:"#f5c84220",border:"1px solid #f5c84250",color:C.gold,fontFamily:FM,fontSize:"9px",cursor:"pointer",fontWeight:700}}>
+                      ✓ Thêm
+                    </button>
+                    <button onClick={()=>setMilForm(p=>({...p,show:false}))}
+                      style={{padding:"6px 12px",borderRadius:6,background:"transparent",border:"1px solid #333",color:"#888",fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>
+                      Hủy
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {finMilestones.length===0&&!milForm.show&&(
+                <p style={{textAlign:"center",color:"#666",fontSize:11,padding:"16px 0"}}>
+                  🎯 Chưa có cột mốc. Tạo roadmap tự do tài chính của bạn!
+                </p>
+              )}
+
+              {finMilestones.map((s,i)=>(
+                <div key={s.id} style={{display:"flex",gap:10,alignItems:"flex-start",marginBottom:i<finMilestones.length-1?12:0}}>
+                  <button onClick={()=>saveFinMilestones(finMilestones.map((x,j)=>j===i?{...x,done:!x.done}:x))}
+                    style={{width:28,height:28,borderRadius:"50%",background:s.done?"#34D39930":`${s.col}20`,border:`2px solid ${s.done?"#34D399":s.col}`,color:s.done?"#34D399":s.col,fontSize:12,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>
+                    {s.done?"✓":i+1}
+                  </button>
+                  <div style={{flex:1}}>
+                    <p style={{fontSize:13,fontWeight:600,color:s.done?"#555":"#fff",margin:"0 0 2px",textDecoration:s.done?"line-through":"none"}}>{s.title}</p>
+                    {s.sub&&<p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:0}}>{s.sub}</p>}
+                  </div>
+                  <button onClick={()=>saveFinMilestones(finMilestones.filter((_,j)=>j!==i))}
+                    style={{width:20,height:20,borderRadius:4,background:"transparent",border:"none",color:"#ef444460",cursor:"pointer",fontSize:12,padding:0,flexShrink:0}}>×</button>
                 </div>
               ))}
             </div>
 
-            {/* Recent transactions */}
+{/* Recent transactions */}
             {finTxs.length>0&&(
               <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"12px 14px"}}>
                 <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,letterSpacing:"2px",margin:"0 0 10px"}}>📋 GIAO DỊCH GẦN ĐÂY</p>
@@ -3161,10 +3306,10 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
                   <div key={k} style={{textAlign:"center"}}>
                     <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,margin:"0 0 4px"}}>{l} (phút)</p>
                     <div style={{display:"flex",alignItems:"center",gap:4}}>
-                      <button onClick={()=>setPom(p=>({...p,[k]:Math.max(1,p[k]-5),elapsed:0,running:false}))}
+                      <button onClick={()=>setPom(p=>({...p,[k]:Math.max(1,p[k]-1),elapsed:0,running:false}))}
                         style={{width:24,height:24,borderRadius:4,background:"rgba(255,255,255,0.05)",border:`1px solid ${C.bd}`,color:"#fff",cursor:"pointer",fontSize:14}}>−</button>
                       <span style={{fontFamily:FM,fontSize:16,fontWeight:700,color:"#fff",minWidth:28,textAlign:"center"}}>{v}</span>
-                      <button onClick={()=>setPom(p=>({...p,[k]:p[k]+5,elapsed:0,running:false}))}
+                      <button onClick={()=>setPom(p=>({...p,[k]:Math.min(120,p[k]+1),elapsed:0,running:false}))}
                         style={{width:24,height:24,borderRadius:4,background:"rgba(255,255,255,0.05)",border:`1px solid ${C.bd}`,color:"#fff",cursor:"pointer",fontSize:14}}>+</button>
                     </div>
                   </div>
@@ -3585,6 +3730,134 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
             {id:"cottage_cheese",n:"Cottage cheese (150g)",cal:130,p:18,c:6,f:3,cat:"gym",icon:"🧀"},
           ];
 
+          // ── 🏋️ Gym Menu Integration (124 món) ──────────────────
+          // Merge gym items không trùng id
+          const GYM_EXTRA=[
+            // 🌅 Bữa sáng
+            {id:"sang_pho_bo",n:"Phở bò",cal:450,p:30,c:55,f:8,cat:"vn",icon:"🍜"},
+            {id:"sang_bun_bo",n:"Bún bò Huế",cal:480,p:28,c:58,f:10,cat:"vn",icon:"🍜"},
+            {id:"sang_chao_ga",n:"Cháo gà",cal:280,p:22,c:35,f:5,cat:"vn",icon:"🥣"},
+            {id:"sang_banh_mi_trung",n:"Bánh mì trứng (sáng)",cal:350,p:14,c:42,f:12,cat:"vn",icon:"🥖"},
+            {id:"sang_banh_mi_thit",n:"Bánh mì thịt (sáng)",cal:400,p:18,c:45,f:14,cat:"vn",icon:"🥖"},
+            {id:"sang_xoi_ga",n:"Xôi gà",cal:420,p:24,c:58,f:10,cat:"vn",icon:"🍱"},
+            {id:"sang_xoi_xeo",n:"Xôi xéo",cal:380,p:10,c:68,f:8,cat:"vn",icon:"🍱"},
+            {id:"sang_bun_rieu",n:"Bún riêu",cal:400,p:26,c:48,f:9,cat:"vn",icon:"🍜"},
+            {id:"sang_hu_tieu",n:"Hủ tiếu",cal:430,p:25,c:52,f:10,cat:"vn",icon:"🍜"},
+            {id:"sang_mi_goi",n:"Mì gói trứng",cal:480,p:16,c:62,f:16,cat:"vn",icon:"🍜"},
+            {id:"sang_banh_cuon",n:"Bánh cuốn",cal:320,p:16,c:48,f:6,cat:"vn",icon:"🫙"},
+            {id:"sang_com_tam",n:"Cơm tấm sườn (sáng)",cal:580,p:32,c:65,f:18,cat:"vn",icon:"🍚"},
+            {id:"sang_trung_chien",n:"Trứng chiên",cal:160,p:12,c:1,f:12,cat:"gym",icon:"🥚"},
+            {id:"sang_yen_mach",n:"Yến mạch sữa",cal:350,p:14,c:52,f:8,cat:"gym",icon:"🥣"},
+            {id:"sang_banh_bao",n:"Bánh bao nhân thịt",cal:280,p:12,c:38,f:8,cat:"vn",icon:"🥟"},
+            {id:"sang_com_trung",n:"Cơm trắng + trứng",cal:380,p:14,c:62,f:8,cat:"vn",icon:"🍚"},
+            {id:"trua_com_ga",n:"Cơm gà luộc",cal:520,p:38,c:62,f:10,cat:"vn",icon:"🍚"},
+            {id:"trua_com_suon",n:"Cơm sườn bí đao",cal:550,p:30,c:68,f:12,cat:"vn",icon:"🍚"},
+            {id:"trua_com_ca_kho",n:"Cơm cá kho",cal:480,p:32,c:58,f:10,cat:"vn",icon:"🍚"},
+            {id:"trua_thit_kho",n:"Cơm thịt kho tàu",cal:620,p:35,c:65,f:20,cat:"vn",icon:"🍚"},
+            {id:"trua_com_tom",n:"Cơm tôm rang",cal:500,p:30,c:60,f:12,cat:"vn",icon:"🍚"},
+            {id:"trua_canh_chua",n:"Cơm canh chua",cal:460,p:28,c:55,f:10,cat:"vn",icon:"🍚"},
+            {id:"trua_bun_nuong",n:"Bún thịt nướng",cal:520,p:30,c:58,f:14,cat:"vn",icon:"🍜"},
+            {id:"trua_bun_dau",n:"Bún đậu mắm tôm",cal:580,p:22,c:62,f:22,cat:"vn",icon:"🍜"},
+            {id:"trua_com_chien",n:"Cơm chiên dương châu",cal:560,p:18,c:72,f:18,cat:"vn",icon:"🍚"},
+            {id:"trua_mi_xao_bo",n:"Mì xào bò",cal:580,p:32,c:68,f:16,cat:"vn",icon:"🍜"},
+            {id:"trua_pho_ga",n:"Phở gà",cal:400,p:28,c:48,f:8,cat:"vn",icon:"🍜"},
+            {id:"trua_banh_uot",n:"Bánh ướt thịt heo",cal:380,p:20,c:45,f:12,cat:"vn",icon:"🫙"},
+            {id:"trua_com_rang",n:"Cơm rang trứng",cal:480,p:16,c:65,f:16,cat:"vn",icon:"🍚"},
+            {id:"trua_goi_cuon",n:"Gỏi cuốn (2 cuốn)",cal:180,p:12,c:22,f:4,cat:"healthy",icon:"🫙"},
+            {id:"trua_bun_cha",n:"Bún chả Hà Nội",cal:540,p:32,c:58,f:16,cat:"vn",icon:"🍜"},
+            {id:"trua_com_ga_xoi",n:"Cơm gà xối mỡ",cal:650,p:40,c:62,f:22,cat:"vn",icon:"🍚"},
+            {id:"toi_thit_luoc",n:"Cơm thịt luộc rau",cal:420,p:30,c:52,f:10,cat:"vn",icon:"🍚"},
+            {id:"toi_ca_hoi",n:"Cá hồi áp chảo",cal:380,p:38,c:8,f:20,cat:"gym",icon:"🐟"},
+            {id:"toi_uc_ga",n:"Ức gà áp chảo",cal:320,p:42,c:5,f:12,cat:"gym",icon:"🍗"},
+            {id:"toi_bo_xao",n:"Thịt bò xào rau",cal:360,p:32,c:18,f:16,cat:"gym",icon:"🥩"},
+            {id:"toi_tom_hap",n:"Tôm hấp gừng",cal:180,p:28,c:4,f:4,cat:"healthy",icon:"🦐"},
+            {id:"toi_com_canh",n:"Cơm canh rau",cal:380,p:18,c:58,f:6,cat:"vn",icon:"🍚"},
+            {id:"toi_chao_bam",n:"Cháo thịt bằm",cal:320,p:22,c:40,f:8,cat:"vn",icon:"🥣"},
+            {id:"toi_trung_hap",n:"Trứng hấp thịt",cal:280,p:24,c:8,f:16,cat:"gym",icon:"🥚"},
+            {id:"toi_rau_xao",n:"Rau xào tỏi",cal:120,p:4,c:14,f:6,cat:"healthy",icon:"🥬"},
+            {id:"toi_canh_cai",n:"Canh cải thịt",cal:180,p:14,c:10,f:7,cat:"healthy",icon:"🥣"},
+            {id:"toi_dau_hu",n:"Đậu hũ chiên",cal:200,p:12,c:8,f:14,cat:"healthy",icon:"🫘"},
+            {id:"toi_lau_thai",n:"Lẩu thái hải sản",cal:450,p:36,c:30,f:14,cat:"intl",icon:"🫕"},
+            {id:"toi_ca_loc",n:"Cá lóc hấp",cal:280,p:34,c:4,f:10,cat:"healthy",icon:"🐟"},
+            {id:"toi_thit_kho_gung",n:"Thịt heo kho gừng",cal:380,p:28,c:6,f:24,cat:"vn",icon:"🍚"},
+            {id:"toi_com_gao_lut",n:"Cơm gạo lứt + rau",cal:350,p:12,c:62,f:5,cat:"healthy",icon:"🍚"},
+            {id:"toi_chao_yen",n:"Cháo yến mạch tối",cal:260,p:10,c:44,f:5,cat:"healthy",icon:"🥣"},
+            {id:"snack_chuoi",n:"Chuối (1 quả) snack",cal:90,p:1,c:23,f:0,cat:"healthy",icon:"🍌"},
+            {id:"snack_tao",n:"Táo (1 quả) snack",cal:80,p:0,c:21,f:0,cat:"healthy",icon:"🍎"},
+            {id:"snack_sua_chua",n:"Sữa chua không đường",cal:100,p:8,c:12,f:2,cat:"gym",icon:"🥛"},
+            {id:"snack_whey",n:"Whey protein shake",cal:150,p:25,c:8,f:2,cat:"gym",icon:"💊"},
+            {id:"snack_trung_luoc",n:"Trứng luộc (2 quả)",cal:160,p:14,c:1,f:11,cat:"gym",icon:"🥚"},
+            {id:"snack_hat_dieu",n:"Hạt điều (30g) snack",cal:170,p:5,c:10,f:14,cat:"gym",icon:"🥜"},
+            {id:"snack_bo",n:"Bơ (1/2 quả) snack",cal:160,p:2,c:9,f:15,cat:"healthy",icon:"🥑"},
+            {id:"snack_granola",n:"Granola + sữa",cal:320,p:10,c:52,f:8,cat:"gym",icon:"🥣"},
+            {id:"snack_pho_mai",n:"Phô mai (2 lát)",cal:140,p:8,c:2,f:11,cat:"gym",icon:"🧀"},
+            {id:"snack_banh_gao",n:"Bánh gạo lứt snack",cal:110,p:2,c:24,f:1,cat:"healthy",icon:"⭕"},
+            {id:"snack_socola",n:"Socola đen (30g)",cal:170,p:3,c:18,f:11,cat:"healthy",icon:"🍫"},
+            {id:"snack_nuoc_ep_cam",n:"Nước ép cam",cal:120,p:2,c:28,f:0,cat:"healthy",icon:"🍊"},
+            {id:"snack_sinh_to_chuoi",n:"Sinh tố chuối",cal:200,p:5,c:42,f:2,cat:"healthy",icon:"🍌"},
+            {id:"snack_khoai_lang",n:"Khoai lang luộc snack",cal:130,p:3,c:30,f:0,cat:"gym",icon:"🍠"},
+            {id:"snack_hat_de",n:"Hạt dẻ (50g)",cal:180,p:4,c:18,f:11,cat:"gym",icon:"🥜"},
+            {id:"snack_sua_tuoi",n:"Sữa tươi không đường snack",cal:130,p:8,c:12,f:5,cat:"gym",icon:"🥛"},
+            {id:"gym_ga_gao_lut",n:"Gà + gạo lứt + rau",cal:480,p:45,c:52,f:8,cat:"gym",icon:"🍱"},
+            {id:"gym_ca_ngu_khoai",n:"Cá ngừ + khoai lang",cal:380,p:35,c:35,f:6,cat:"gym",icon:"🍱"},
+            {id:"gym_whey_oats",n:"Whey + oats + chuối",cal:420,p:32,c:62,f:6,cat:"gym",icon:"🥣"},
+            {id:"gym_bo_bong_cai",n:"Bò + bông cải",cal:360,p:38,c:14,f:14,cat:"gym",icon:"🥩"},
+            {id:"gym_tom_salad",n:"Tôm + salad rau",cal:220,p:28,c:12,f:4,cat:"healthy",icon:"🥗"},
+            {id:"gym_trung_avo",n:"Trứng + avocado toast",cal:380,p:18,c:32,f:20,cat:"gym",icon:"🥑"},
+            {id:"gym_ga_khoai_tay",n:"Gà + khoai tây",cal:480,p:40,c:45,f:10,cat:"gym",icon:"🍱"},
+            {id:"gym_ca_hoi_quinoa",n:"Cá hồi + quinoa",cal:450,p:40,c:38,f:14,cat:"gym",icon:"🐟"},
+            {id:"gym_suon_khoai",n:"Sườn + khoai lang",cal:520,p:35,c:48,f:16,cat:"gym",icon:"🍱"},
+            {id:"gym_mass_gainer",n:"Mass gainer shake",cal:600,p:30,c:88,f:8,cat:"gym",icon:"💪"},
+            {id:"gym_overnight_oats",n:"Overnight oats",cal:350,p:14,c:58,f:8,cat:"gym",icon:"🥣"},
+            {id:"gym_protein_pancake",n:"Protein pancake",cal:280,p:22,c:30,f:6,cat:"gym",icon:"🥞"},
+            {id:"gym_beef_rice",n:"Beef stir fry + rice",cal:550,p:40,c:58,f:14,cat:"gym",icon:"🍱"},
+            {id:"gym_cottage_fruit",n:"Cottage cheese + fruit",cal:220,p:20,c:22,f:4,cat:"gym",icon:"🧀"},
+            {id:"gym_tuna_sandwich",n:"Tuna sandwich",cal:340,p:30,c:35,f:6,cat:"gym",icon:"🥪"},
+            {id:"gym_egg_white",n:"Egg white omelette",cal:180,p:24,c:4,f:6,cat:"gym",icon:"🥚"},
+            {id:"cheat_burger",n:"Burger bò (fast food)",cal:720,p:35,c:65,f:32,cat:"intl",icon:"🍔"},
+            {id:"cheat_pizza",n:"Pizza (2 miếng)",cal:580,p:24,c:68,f:20,cat:"intl",icon:"🍕"},
+            {id:"cheat_kfc",n:"KFC (2 miếng gà)",cal:650,p:40,c:38,f:36,cat:"intl",icon:"🍗"},
+            {id:"cheat_ga_ran_khoai",n:"Gà rán + khoai tây",cal:680,p:38,c:58,f:28,cat:"intl",icon:"🍗"},
+            {id:"cheat_sushi",n:"Sushi (10 miếng)",cal:420,p:24,c:68,f:6,cat:"intl",icon:"🍣"},
+            {id:"cheat_bun_bo_db",n:"Bún bò Huế đặc biệt",cal:580,p:35,c:65,f:16,cat:"vn",icon:"🍜"},
+            {id:"cheat_lau_thai",n:"Lẩu thái (1 suất)",cal:520,p:40,c:35,f:18,cat:"intl",icon:"🫕"},
+            {id:"cheat_bo_nhung",n:"Bò nhúng dấm",cal:480,p:42,c:25,f:20,cat:"vn",icon:"🥘"},
+            {id:"cheat_com_tam_db",n:"Cơm tấm sườn bì chả",cal:720,p:38,c:75,f:26,cat:"vn",icon:"🍚"},
+            {id:"cheat_pasta_bo",n:"Mỳ Ý sốt bò bằm",cal:620,p:32,c:72,f:20,cat:"intl",icon:"🍝"},
+            {id:"cheat_kebab",n:"Kebab thịt",cal:550,p:36,c:42,f:22,cat:"intl",icon:"🌯"},
+            {id:"cheat_tra_sua",n:"Trà sữa trân châu",cal:480,p:6,c:82,f:12,cat:"intl",icon:"🧋"},
+            {id:"cheat_banh_trang",n:"Bánh tráng trộn",cal:320,p:8,c:52,f:10,cat:"vn",icon:"🫓"},
+            {id:"cheat_bbq",n:"Nướng BBQ (1 suất)",cal:650,p:48,c:18,f:38,cat:"intl",icon:"🍖"},
+            {id:"cheat_hot_pot",n:"Hot pot (1 suất)",cal:550,p:40,c:42,f:20,cat:"intl",icon:"🫕"},
+            {id:"cheat_dim_sum",n:"Dim sum (1 suất)",cal:480,p:22,c:55,f:18,cat:"intl",icon:"🥟"},
+            {id:"drink_ca_phe_den",n:"Cà phê đen",cal:5,p:0,c:1,f:0,cat:"healthy",icon:"☕"},
+            {id:"drink_ca_phe_sua",n:"Cà phê sữa",cal:120,p:3,c:18,f:4,cat:"vn",icon:"☕"},
+            {id:"drink_tra_xanh",n:"Trà xanh",cal:0,p:0,c:0,f:0,cat:"healthy",icon:"🍵"},
+            {id:"drink_nuoc_loc",n:"Nước lọc",cal:0,p:0,c:0,f:0,cat:"healthy",icon:"💧"},
+            {id:"drink_sua_tuoi",n:"Sữa tươi (200ml)",cal:130,p:7,c:12,f:5,cat:"gym",icon:"🥛"},
+            {id:"drink_protein",n:"Protein shake",cal:160,p:26,c:10,f:3,cat:"gym",icon:"💊"},
+            {id:"drink_nuoc_dua",n:"Nước dừa (1 trái)",cal:60,p:1,c:14,f:0,cat:"healthy",icon:"🥥"},
+            {id:"drink_cam_vat",n:"Cam vắt (200ml)",cal:90,p:2,c:21,f:0,cat:"healthy",icon:"🍊"},
+            {id:"drink_sinh_to_xoai",n:"Sinh tố xoài",cal:180,p:2,c:42,f:0,cat:"healthy",icon:"🥭"},
+            {id:"drink_sua_dau_nanh",n:"Sữa đậu nành",cal:80,p:7,c:6,f:4,cat:"healthy",icon:"🥛"},
+            {id:"drink_matcha",n:"Matcha latte",cal:150,p:5,c:20,f:5,cat:"healthy",icon:"🍵"},
+            {id:"drink_electrolyte",n:"Electrolyte drink",cal:20,p:0,c:5,f:0,cat:"gym",icon:"💧"},
+            {id:"clean_salad_ga",n:"Salad gà + rau hỗn hợp",cal:280,p:30,c:14,f:10,cat:"healthy",icon:"🥗"},
+            {id:"clean_ga_rau",n:"Ức gà luộc rau hấp",cal:300,p:38,c:20,f:8,cat:"gym",icon:"🍗"},
+            {id:"clean_ca_hap",n:"Cá hấp gừng hành",cal:240,p:32,c:4,f:8,cat:"healthy",icon:"🐟"},
+            {id:"clean_tom_rau",n:"Tôm luộc + rau cải",cal:200,p:28,c:8,f:4,cat:"healthy",icon:"🦐"},
+            {id:"clean_dau_hu_hap",n:"Đậu hũ hấp",cal:150,p:14,c:6,f:8,cat:"healthy",icon:"🫘"},
+            {id:"clean_rau_hap",n:"Rau củ hấp",cal:80,p:4,c:16,f:0,cat:"healthy",icon:"🥦"},
+            {id:"clean_smoothie",n:"Smoothie bowl",cal:320,p:12,c:52,f:8,cat:"healthy",icon:"🫐"},
+            {id:"clean_gao_lut_dau",n:"Gạo lứt + đậu xanh",cal:320,p:14,c:58,f:3,cat:"healthy",icon:"🍚"},
+            {id:"clean_quinoa",n:"Quinoa salad",cal:350,p:14,c:55,f:8,cat:"healthy",icon:"🌾"},
+            {id:"clean_ca_ngu_salad",n:"Cá ngừ rau xà lách",cal:220,p:30,c:8,f:6,cat:"healthy",icon:"🐟"},
+            {id:"clean_soup_rau",n:"Soup rau củ",cal:120,p:5,c:22,f:2,cat:"healthy",icon:"🥣"},
+            {id:"clean_ga_bong_cai",n:"Ức gà + súp lơ",cal:280,p:36,c:14,f:8,cat:"gym",icon:"🍗"},
+          ];
+          const allFoodIds=new Set(FOODS.map(f=>f.id));
+          const mergedFoods=[...FOODS,...GYM_EXTRA.filter(f=>!allFoodIds.has(f.id))];
+
           const today=new Date().toISOString().slice(0,10);
           const todayLog=nutLog.filter(e=>e.date===today);
           const todayCal=todayLog.reduce((s,e)=>s+e.cal,0);
@@ -3618,12 +3891,12 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
           const CATS=[
             {id:"all",label:"Tất cả",icon:"🍽️"},
             {id:"vn",label:"Việt Nam",icon:"🇻🇳"},
-            {id:"gym",label:"Gym",icon:"💪"},
+            {id:"gym",label:"Gym/Meal prep",icon:"💪"},
             {id:"intl",label:"Quốc tế",icon:"🌍"},
             {id:"healthy",label:"Healthy",icon:"🥗"},
           ];
 
-          const filteredFoods=FOODS.filter(f=>{
+          const filteredFoods=mergedFoods.filter(f=>{
             if(nutCat!=="all"&&f.cat!==nutCat) return false;
             if(nutSearch&&!f.n.toLowerCase().includes(nutSearch.toLowerCase())) return false;
             return true;
@@ -3887,7 +4160,7 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
 
                   {/* Food search + add */}
                   <div style={{background:C.s1,border:`1px solid ${C.bd}`,borderRadius:10,padding:"12px 14px"}}>
-                    <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,letterSpacing:"2px",margin:"0 0 10px"}}>🔍 THÊM THỨC ĂN ({FOODS.length} món)</p>
+                    <p style={{fontFamily:FM,fontSize:"9px",color:C.mu,letterSpacing:"2px",margin:"0 0 10px"}}>🔍 THÊM THỨC ĂN ({mergedFoods.length} món)</p>
                     <input value={nutSearch} onChange={e=>setNutSearch(e.target.value)} placeholder="Tìm món ăn..."
                       style={{width:"100%",background:"#111",border:`1px solid ${C.bd}`,borderRadius:8,color:"#fff",padding:"8px 12px",fontSize:12,boxSizing:"border-box",marginBottom:8}}/>
                     {/* Category filter */}
