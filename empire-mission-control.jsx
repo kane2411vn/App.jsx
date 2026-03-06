@@ -1209,40 +1209,50 @@ const supa = {
   async signUp(email, password, name, inviteCode) {
     // Check invite code first
     const ir = await fetch(`${SUPA_URL}/rest/v1/invites?code=eq.${encodeURIComponent(inviteCode)}&used_by=is.null`, { headers: this.headers });
+    if (!ir.ok) throw new Error("Không kết nối được Supabase. Thử lại.");
     const invites = await ir.json();
-    if (!invites?.length) throw new Error("Mã mời không hợp lệ hoặc đã được dùng.");
+    if (!Array.isArray(invites) || !invites.length) throw new Error("Mã mời không hợp lệ hoặc đã được dùng.");
 
     // Sign up
     const r = await fetch(`${SUPA_URL}/auth/v1/signup`, {
-      method: "POST", headers: this.headers,
-      body: JSON.stringify({ email, password })
+      method: "POST",
+      headers: { ...this.headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim(), password, data: { name } })
     });
     const d = await r.json();
-    if (d.error) throw new Error(d.error.message || d.msg || "Đăng ký thất bại");
-    const uid = d.user?.id;
-    const token = d.access_token;
-    if (!uid) throw new Error("Không lấy được user ID");
+    if (!r.ok || d.error) throw new Error(d.error?.message || d.msg || "Đăng ký thất bại — kiểm tra email/mật khẩu");
+    
+    const uid = d.user?.id || d.id;
+    const token = d.access_token || d.session?.access_token;
+    if (!uid) throw new Error("Không lấy được user ID — thử lại");
 
-    // Create profile
-    const authHeaders = { ...this.headers, "Authorization": `Bearer ${token}` };
+    // Use service role or anon for profile/data creation
+    const authHeaders = token 
+      ? { ...this.headers, "Authorization": `Bearer ${token}` }
+      : this.headers;
+
+    // Create profile (ignore error if exists)
     await fetch(`${SUPA_URL}/rest/v1/profiles`, {
-      method: "POST", headers: authHeaders,
+      method: "POST",
+      headers: { ...authHeaders, "Prefer": "return=minimal,resolution=ignore-duplicates" },
       body: JSON.stringify({ id: uid, name, telegram_chat_id: "", timezone: "Asia/Ho_Chi_Minh" })
     });
 
-    // Init user_data
+    // Init user_data (ignore error if exists)
     await fetch(`${SUPA_URL}/rest/v1/user_data`, {
-      method: "POST", headers: authHeaders,
+      method: "POST",
+      headers: { ...authHeaders, "Prefer": "return=minimal,resolution=ignore-duplicates" },
       body: JSON.stringify({ user_id: uid })
     });
 
     // Mark invite used
     await fetch(`${SUPA_URL}/rest/v1/invites?code=eq.${encodeURIComponent(inviteCode)}`, {
-      method: "PATCH", headers: this.headers,
+      method: "PATCH",
+      headers: { ...this.headers, "Prefer": "return=minimal" },
       body: JSON.stringify({ used_by: uid, used_at: new Date().toISOString() })
     });
 
-    return { uid, token, email, name };
+    return { uid, token: token||"", email: email.trim(), name };
   },
 
   async signIn(email, password) {
