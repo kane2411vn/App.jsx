@@ -1658,7 +1658,23 @@ export default function App() {
           .notif-panel{width:calc(100vw - 24px)!important;right:-4px!important}
           .mob-hide{display:none!important}
           .mob-col{flex-direction:column!important}
+          .top-tabs{display:none!important}
+          .bottom-nav{display:flex!important}
+          input,textarea,select{font-size:16px!important}
+          button{-webkit-tap-highlight-color:transparent}
         }
+        .bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;
+          background:#0D0F14ee;backdrop-filter:blur(12px);border-top:1px solid rgba(255,255,255,0.08);
+          padding:4px 0 calc(4px + env(safe-area-inset-bottom));
+          align-items:stretch;justify-content:space-around}
+        .bottom-nav button{flex:1;display:flex;flex-direction:column;align-items:center;
+          gap:2px;padding:5px 2px;background:none;border:none;cursor:pointer;
+          min-height:50px;border-radius:0;transition:all .15s;position:relative}
+        .bottom-nav button.active::before{content:'';position:absolute;top:0;left:20%;right:20%;
+          height:2px;border-radius:2px;background:currentColor}
+        .bottom-nav .nav-icon{font-size:22px;line-height:1}
+        .bottom-nav .nav-dot{position:absolute;top:4px;right:calc(50% - 16px);width:6px;height:6px;
+          border-radius:50%;background:#f5c842}
       `}</style>
 
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
@@ -1728,7 +1744,7 @@ export default function App() {
             </div>
           </div>
           {/* Tabs */}
-          <div style={{display:"flex",gap:0,overflowX:"auto"}}>
+          <div className="top-tabs" style={{display:"flex",gap:0,overflowX:"auto"}}>
             {TABS.map(t=>{const a=tab===t.id;return(
               <button key={t.id} onClick={()=>setTab(t.id)}
                 style={{display:"flex",alignItems:"center",gap:6,padding:isMobile?"8px 10px":"8px 14px",flexShrink:0,background:a?`${t.color}0C`:"transparent",border:"none",borderBottom:`2px solid ${a?t.color:"transparent"}`,color:a?t.color:C.mu,cursor:"pointer",transition:"all .15s"}}>
@@ -1739,6 +1755,16 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* ── MOBILE BOTTOM NAV ── */}
+      <nav className="bottom-nav">
+        {TABS.map(t=>{const a=tab===t.id;return(
+          <button key={t.id} onClick={()=>setTab(t.id)} className={a?"active":""}
+            style={{color:a?t.color:"rgba(232,227,216,0.45)"}}>
+            <span className="nav-icon">{t.label.split(" ")[0]}</span>
+          </button>
+        );})}
+      </nav>
 
       {/* ── BODY ────────────────────────────────────────────────────────────── */}
       <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
@@ -3588,11 +3614,10 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
                     </div>
                     {menuSearch&&<p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"8px 0 0",textAlign:"center"}}>{filtered.length} kết quả</p>}
                   </div>
-            </>
                 );
               })()}
 
-            </div>
+            </>
           );
         })()}
 
