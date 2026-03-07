@@ -2113,6 +2113,7 @@ export default function App() {
                     })}
                   </div>
                 </div>
+              </div>
               );
             })()}
 
@@ -2976,6 +2977,7 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
                     ↺ Reset về mặc định T.Harv Eker
                   </button>
                 </div>
+              </div>
               );
             })()}
 
@@ -3090,7 +3092,7 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
                 <p style={{textAlign:"center",color:"#666",fontSize:11,padding:"16px 0"}}>
                   🎉 Không có nợ! Hoặc nhấn "+ Thêm nợ" để theo dõi.
                 </p>
-              )} TRẢ NỢ</p>
+              )}
               {finDebts.map(d=>{
                 const remain=d.total-d.paid;
                 const pct=Math.round(d.paid/d.total*100);
