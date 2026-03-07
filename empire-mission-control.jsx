@@ -2113,7 +2113,6 @@ export default function App() {
                     })}
                   </div>
                 </div>
-                </div>
               );
             })()}
 
@@ -2976,7 +2975,6 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
                     style={{padding:"7px 14px",borderRadius:6,background:"transparent",border:`1px solid ${C.bd}`,color:C.mu,fontFamily:FM,fontSize:"9px",cursor:"pointer"}}>
                     ↺ Reset về mặc định T.Harv Eker
                   </button>
-                </div>
               </>
               );
             })()}
@@ -3590,6 +3588,7 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
                     </div>
                     {menuSearch&&<p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"8px 0 0",textAlign:"center"}}>{filtered.length} kết quả</p>}
                   </div>
+            </div>
                 );
               })()}
 
