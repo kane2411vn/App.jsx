@@ -3390,7 +3390,7 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
           const now=new Date(); const dow=now.getDay();
           const sch=SCH[selSch]; const today=sch.sch[dow];
           return(
-            <div style={{flex:1,overflowY:"auto",maxWidth:960,width:"100%",margin:"0 auto",padding:isMobile?"10px 12px 80px":"14px 20px 40px",boxSizing:"border-box"}}>
+            <>
 
               {/* Today workout */}
               <div style={{background:C.s1,border:`1px solid ${today.c==="#444"?C.bd:today.c+"40"}`,borderRadius:12,padding:"14px 16px",marginBottom:12}}>
@@ -3588,7 +3588,7 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
                     </div>
                     {menuSearch&&<p style={{fontFamily:FM,fontSize:"8px",color:C.mu,margin:"8px 0 0",textAlign:"center"}}>{filtered.length} kết quả</p>}
                   </div>
-            </div>
+            </>
                 );
               })()}
 
