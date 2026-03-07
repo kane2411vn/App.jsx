@@ -2112,7 +2112,7 @@ export default function App() {
                       </div>);
                     })}
                   </div>
-                </div>
+                </>
               );
             })()}
 
@@ -2806,7 +2806,7 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
               };
 
               return(
-                <div>
+                <>
                   {/* Header */}
                   <div style={{background:"linear-gradient(135deg,#f5c84215,#f9731608)",border:"1px solid #f5c84230",borderRadius:12,padding:"14px 16px",marginBottom:12}}>
                     <p style={{fontFamily:FM,fontSize:"9px",color:"#f5c842",letterSpacing:"2px",margin:"0 0 4px"}}>🏺 HỆ THỐNG 6 CHIẾC LỌ — T.HARV EKER</p>
@@ -2976,7 +2976,7 @@ TELEGRAM_TOKEN=xxx OPENROUTER_KEY=xxx TELEGRAM_CHAT_ID=yyy node empire-notificat
                     ↺ Reset về mặc định T.Harv Eker
                   </button>
                 </div>
-              </div>
+              </>
               );
             })()}
 
